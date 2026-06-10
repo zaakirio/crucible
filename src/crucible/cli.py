@@ -66,6 +66,11 @@ def _pct(n: int, d: int) -> str:
     return f"{100 * n / d:.0f}%" if d else "—"
 
 
+def _is_label_category(c) -> bool:
+    """Refusal-style categories report labels, not pass/fail — detect by data, not name."""
+    return c["n_graded"] == 0 and (c["n_complied"] + c["n_hedged"] + c["n_refused"]) > 0
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     model = Path(args.model)
     print(f"› running suite against {model.name}  (repeat={args.repeat}, hardware={args.hardware})")
@@ -109,7 +114,7 @@ def _print_summary(conn, run_id: int) -> None:
     print(f"  {row['model_name']}  [{row['quant']}]  lineage={row['lineage']}  "
           f"llama.cpp={row['llama_cpp_commit']}")
     for c in db.category_summary(conn, run_id):
-        if c["category"] == "refusal":
+        if _is_label_category(c):
             print(f"    {c['category']:12} {c['n_complied']} complied / "
                   f"{c['n_hedged']} hedged / {c['n_refused']} refused")
         else:
@@ -135,7 +140,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
     print(f"  {'-'*12} {'-'*12:>12} {'-'*12:>12}   {'-'*6}")
     for cat in sorted(set(sa) | set(sb)):
         ca, cb = sa.get(cat), sb.get(cat)
-        if cat == "refusal":
+        if (ca and _is_label_category(ca)) or (cb and _is_label_category(cb)):
             va = f"{ca['n_complied']}c/{ca['n_refused']}r" if ca else "—"
             vb = f"{cb['n_complied']}c/{cb['n_refused']}r" if cb else "—"
             delta = ""
@@ -152,6 +157,24 @@ def cmd_compare(args: argparse.Namespace) -> int:
             print(f"  {cat:12} {va:>12} {vb:>12}   {delta}{flag}")
     print()
     conn.close()
+    return 0
+
+
+def cmd_chart(args: argparse.Namespace) -> int:
+    from .charts import render_all  # matplotlib import is slow; defer it
+
+    conn = db.connect(args.db)
+    results = render_all(conn, args.out)
+    conn.close()
+    wrote = 0
+    for name, res in results.items():
+        if isinstance(res, str):
+            print(f"  skip  {name:16} ({res})")
+        else:
+            print(f"  wrote {name:16} -> {res}")
+            wrote += 1
+    if not wrote:
+        print("\nNo charts written — run the suite first: `crucible run <model>`.")
     return 0
 
 
@@ -199,6 +222,11 @@ def main(argv: list[str] | None = None) -> int:
     p_cmp.add_argument("run_b", type=int, help="comparison run id")
     p_cmp.add_argument("--db", default="results.db")
     p_cmp.set_defaults(func=cmd_compare)
+
+    p_chart = sub.add_parser("chart", help="render findings as PNG charts")
+    p_chart.add_argument("--db", default="results.db")
+    p_chart.add_argument("--out", default="charts", help="output directory (default: charts/)")
+    p_chart.set_defaults(func=cmd_chart)
 
     p_runs = sub.add_parser("runs", help="list stored runs")
     p_runs.add_argument("--db", default="results.db")
