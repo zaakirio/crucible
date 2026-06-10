@@ -1,4 +1,4 @@
-"""Pull GGUF files from a Hugging Face model repo — no `huggingface_hub` dependency.
+"""Pull GGUF files from a Hugging Face model repo - no `huggingface_hub` dependency.
 
 Two endpoints, both public:
   https://huggingface.co/api/models/{repo}/tree/main      -> file listing (path, size)
@@ -30,11 +30,11 @@ def _auth_headers() -> dict[str, str]:
 
 
 def list_ggufs(repo_id: str) -> list[HubFile]:
-    """All .gguf files in a repo (mmproj projectors included — they're .gguf too)."""
+    """All .gguf files in a repo (mmproj projectors included - they're .gguf too)."""
     url = f"https://huggingface.co/api/models/{repo_id}/tree/main"
     r = httpx.get(url, headers=_auth_headers(), timeout=30, follow_redirects=True)
     if r.status_code == 401:
-        raise SystemExit(f"{repo_id} is gated/private — set $HF_TOKEN (huggingface.co/settings/tokens)")
+        raise SystemExit(f"{repo_id} is gated/private - set $HF_TOKEN (huggingface.co/settings/tokens)")
     if r.status_code == 404:
         raise SystemExit(f"No such repo: {repo_id}")
     r.raise_for_status()
@@ -50,7 +50,7 @@ def download(repo_id: str, file: HubFile, dest_dir: Path) -> Path:
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / Path(file.path).name
     if dest.exists() and file.size and dest.stat().st_size == file.size:
-        print(f"  have  {dest.name} ({file.size / 1e9:.2f} GB) — skipping")
+        print(f"  have  {dest.name} ({file.size / 1e9:.2f} GB) - skipping")
         return dest
 
     url = f"https://huggingface.co/{repo_id}/resolve/main/{file.path}"

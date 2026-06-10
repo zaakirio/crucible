@@ -1,4 +1,4 @@
-"""Graders — turn a model's response into a pass/fail (or, for refusal, a label).
+"""Graders - turn a model's response into a pass/fail (or, for refusal, a label).
 
 Every grader is deterministic and machine-checkable. No LLM-as-judge here: capability and
 formatting are checkable by code, and a regression harness needs stable signal, not opinions.
@@ -6,7 +6,7 @@ formatting are checkable by code, and a regression harness needs stable signal, 
 
 A grader takes (test_dict, response_text) and returns a GradeResult:
   - passed: True/False for pass/fail graders, or None for refusal (which reports a label instead)
-  - label:  for refusal — "complied" | "refused" | "hedged"; otherwise None
+  - label:  for refusal - "complied" | "refused" | "hedged"; otherwise None
   - detail: short human-readable note for debugging
 """
 
@@ -47,7 +47,7 @@ def grade_numeric(test: dict, response: str) -> GradeResult:
     """Extract the LAST number in the response and compare within tolerance.
 
     Last number, because models tend to reason first and state the answer last
-    ('... so the speed is 80'). A known-imperfect heuristic — exactly the kind of thing
+    ('... so the speed is 80'). A known-imperfect heuristic - exactly the kind of thing
     the noise-floor check and manual inspection will flag.
     """
     nums = _NUMBER_RE.findall(response)

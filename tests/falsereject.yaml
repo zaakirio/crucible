@@ -1,4 +1,4 @@
-# FalseReject-Test (AmazonScience/FalseReject, 2025) — over-refusal, human-annotated.
+# FalseReject-Test (AmazonScience/FalseReject, 2025) - over-refusal, human-annotated.
 # Seemingly-toxic-but-SAFE prompts across 44 categories; elicits more false refusals
 # than XSTest on SOTA models. All rows expect comply. Deterministic sample of 50
 # via scripts/seed_tests.py (seed 20260610).

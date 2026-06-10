@@ -1,4 +1,4 @@
-"""SQLite storage — append-only. A 'run' is one model evaluated under one set of settings;
+"""SQLite storage - append-only. A 'run' is one model evaluated under one set of settings;
 comparisons (base vs abliterated, Q4 vs Q8) are just queries over runs.
 """
 

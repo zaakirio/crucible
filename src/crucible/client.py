@@ -15,7 +15,7 @@ import httpx
 class ChatResult:
     text: str
     # llama.cpp returns a `timings` object with prefill/decode speeds. predicted_per_second
-    # is the decode (generation) tok/s — we read it straight from the server, no client timing.
+    # is the decode (generation) tok/s - we read it straight from the server, no client timing.
     tokens_per_second: float | None
     prompt_tokens: int | None
     completion_tokens: int | None

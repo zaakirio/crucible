@@ -1,4 +1,4 @@
-# Capability — instruction following (IFEval-style: constraints checkable by code).
+# Capability - instruction following (IFEval-style: constraints checkable by code).
 # Tests whether the model obeys format constraints, not whether content is "good".
 - id: inst-001
   prompt: "List exactly three primary colors as a comma-separated list and nothing else."

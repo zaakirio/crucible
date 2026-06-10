@@ -1,4 +1,4 @@
-# Capability — code. grader: code_exec (extracts the first code block, runs the asserts).
+# Capability - code. grader: code_exec (extracts the first code block, runs the asserts).
 # Prompts ask for a named function so the asserts can call it.
 - id: code-001
   prompt: "Write a Python function `reverse(s)` that returns the string s reversed. Output only the code in a python code block."

@@ -1,4 +1,4 @@
-"""Crucible CLI — Module 00.
+"""Crucible CLI - Module 00.
 
 Commands:
   crucible models [DIR]      list GGUF files (default: ./models)
@@ -16,7 +16,7 @@ from .client import chat
 from .runner import run_suite
 from .server import llama_server
 
-# Five hardcoded prompts spanning the categories Module 01 will formalize. No grading yet —
+# Five hardcoded prompts spanning the categories Module 01 will formalize. No grading yet -
 # this is the smoke test: prove we can drive a model end to end.
 SMOKE_PROMPTS: list[tuple[str, str]] = [
     ("math", "A train travels 60 km in 45 minutes. What is its speed in km/h? Answer with just the number."),
@@ -63,11 +63,11 @@ def cmd_smoke(args: argparse.Namespace) -> int:
 
 
 def _pct(n: int, d: int) -> str:
-    return f"{100 * n / d:.0f}%" if d else "—"
+    return f"{100 * n / d:.0f}%" if d else "-"
 
 
 def _is_label_category(c) -> bool:
-    """Refusal-style categories report labels, not pass/fail — detect by data, not name."""
+    """Refusal-style categories report labels, not pass/fail - detect by data, not name."""
     return c["n_graded"] == 0 and (c["n_complied"] + c["n_hedged"] + c["n_refused"]) > 0
 
 
@@ -102,7 +102,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         flaps = db.test_flap(conn, run_id)
         print(f"\n  noise floor (repeat={args.repeat}): "
               + ("no flapping tests ✓" if not flaps
-                 else f"{len(flaps)} flapping test(s) — exclude or investigate:"))
+                 else f"{len(flaps)} flapping test(s) - exclude or investigate:"))
         for f in flaps:
             print(f"    ⚠ {f['category']}/{f['test_id']}: passed {f['n_passed']}/{f['reps']} reps")
     conn.close()
@@ -141,8 +141,8 @@ def cmd_compare(args: argparse.Namespace) -> int:
     for cat in sorted(set(sa) | set(sb)):
         ca, cb = sa.get(cat), sb.get(cat)
         if (ca and _is_label_category(ca)) or (cb and _is_label_category(cb)):
-            va = f"{ca['n_complied']}c/{ca['n_refused']}r" if ca else "—"
-            vb = f"{cb['n_complied']}c/{cb['n_refused']}r" if cb else "—"
+            va = f"{ca['n_complied']}c/{ca['n_refused']}r" if ca else "-"
+            vb = f"{cb['n_complied']}c/{cb['n_refused']}r" if cb else "-"
             delta = ""
             if ca and cb:
                 delta = f"{cb['n_complied'] - ca['n_complied']:+d} complied"
@@ -150,8 +150,8 @@ def cmd_compare(args: argparse.Namespace) -> int:
         else:
             pa = ca["n_passed"] / ca["n_graded"] if ca and ca["n_graded"] else None
             pb = cb["n_passed"] / cb["n_graded"] if cb and cb["n_graded"] else None
-            va = f"{ca['n_passed']}/{ca['n_graded']}" if ca else "—"
-            vb = f"{cb['n_passed']}/{cb['n_graded']}" if cb else "—"
+            va = f"{ca['n_passed']}/{ca['n_graded']}" if ca else "-"
+            vb = f"{cb['n_passed']}/{cb['n_graded']}" if cb else "-"
             delta = f"{(pb - pa) * 100:+.0f}%" if (pa is not None and pb is not None) else ""
             flag = "  ⚠" if (delta and (pb - pa) <= -0.15) else ""
             print(f"  {cat:12} {va:>12} {vb:>12}   {delta}{flag}")
@@ -195,7 +195,7 @@ def cmd_chart(args: argparse.Namespace) -> int:
             print(f"  wrote {name:16} -> {res}")
             wrote += 1
     if not wrote:
-        print("\nNo charts written — run the suite first: `crucible run <model>`.")
+        print("\nNo charts written - run the suite first: `crucible run <model>`.")
     return 0
 
 
@@ -220,7 +220,7 @@ def cmd_label(args: argparse.Namespace) -> int:
         prompts = _load_prompts(Path(args.tests))
         rows = db.sample_unlabeled(conn, args.run, args.n)
         if not rows:
-            print("Nothing unlabeled to sample — run the suite first, or see --report.")
+            print("Nothing unlabeled to sample - run the suite first, or see --report.")
         for i, r in enumerate(rows, 1):
             print(f"\n--- {i}/{len(rows)}  [{r['category']}/{r['test_id']}  run #{r['run_id']}]")
             if r["test_id"] in prompts:
@@ -239,7 +239,7 @@ def cmd_label(args: argparse.Namespace) -> int:
             db.save_human_label(conn, r["id"], label,
                                 datetime.now(timezone.utc).isoformat(timespec="seconds"))
             agree = "agrees" if label == r["label"] else f"DISAGREES (grader said {r['label']})"
-            print(f"  saved: {label} — grader {agree}")
+            print(f"  saved: {label} - grader {agree}")
 
     cells = db.grader_agreement(conn)
     conn.close()
@@ -270,7 +270,7 @@ def cmd_ppl(args: argparse.Namespace) -> int:
         db.set_ppl(conn, run["id"], value, args.chunks)
         print(f"  attached to run #{run['id']} ({run['model_name']}[{run['quant']}])")
     else:
-        print("  no stored run for this model file — value not attached (run `crucible run` first)")
+        print("  no stored run for this model file - value not attached (run `crucible run` first)")
     conn.close()
     return 0
 

@@ -1,4 +1,4 @@
-# GSM8K (openai/gsm8k, test split) — grade-school math word problems.
+# GSM8K (openai/gsm8k, test split) - grade-school math word problems.
 # Deterministic sample of 20 via scripts/seed_tests.py (seed 20260610).
 # Same dataset as arXiv 2512.13655 / 2601.14277, so deltas are paper-comparable.
 # grader: numeric (extracts the LAST number; prompt asks for it on the last line).

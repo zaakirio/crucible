@@ -8,7 +8,7 @@ The corpus is the standard wikitext-2-raw test set, fetched once from ggml-org's
 (same file llama.cpp's own scripts use) and cached under ~/.cache/crucible/.
 
 PPL is computed over a fixed number of 512-token chunks (default 32 ≈ 16K tokens) so a
-sweep stays minutes, not hours. Values are only comparable at the SAME chunk count — it is
+sweep stays minutes, not hours. Values are only comparable at the SAME chunk count - it is
 stored alongside the value for that reason.
 """
 
@@ -53,7 +53,7 @@ def _find_llama_perplexity() -> Path:
     sibling = _find_llama_server().parent / "llama-perplexity"
     if not sibling.exists():
         raise FileNotFoundError(
-            f"{sibling} not found — rebuild llama.cpp (it's part of the default build)"
+            f"{sibling} not found - rebuild llama.cpp (it's part of the default build)"
         )
     return sibling
 

@@ -1,12 +1,12 @@
-"""Charts — render the findings from results.db as PNGs.
+"""Charts - render the findings from results.db as PNGs.
 
 The table is the product; these are the table's visual form. Four charts, each answering
 one question someone running local models actually asks:
 
-  quant_curve      — where does quality fall off as you quantize?  (pass-rate vs quant)
-  ablit_delta      — what did abliteration cost?                   (base vs abliterated bars)
-  refusal_profile  — did abliteration actually work?               (complied/hedged/refused)
-  pareto           — which quant is the knee?                      (pass-rate vs tok/s vs size)
+  quant_curve      - where does quality fall off as you quantize?  (pass-rate vs quant)
+  ablit_delta      - what did abliteration cost?                   (base vs abliterated bars)
+  refusal_profile  - did abliteration actually work?               (complied/hedged/refused)
+  pareto           - which quant is the knee?                      (pass-rate vs tok/s vs size)
 
 Every chart degrades gracefully: if the runs it needs aren't in the DB yet, it's skipped
 with a reason instead of failing the command.
@@ -42,7 +42,7 @@ def quant_rank(quant: str | None) -> int:
 
 
 def latest_runs(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    """Newest run per (model_name, quant, lineage) — reruns supersede, never average."""
+    """Newest run per (model_name, quant, lineage) - reruns supersede, never average."""
     return conn.execute(
         """
         SELECT * FROM runs WHERE id IN (
@@ -116,7 +116,7 @@ def chart_quant_curve(conn, out_dir: Path) -> Path | str:
                 marker="o", label=cat)
     ax.set_ylabel("pass rate (%)")
     ax.set_ylim(0, 105)
-    ax.set_title(f"{sweep[0]['model_name']} ({sweep[0]['lineage']}) — capability vs quantization")
+    ax.set_title(f"{sweep[0]['model_name']} ({sweep[0]['lineage']}) - capability vs quantization")
     ax.grid(True, alpha=0.3)
     ax.legend()
     path = out_dir / "quant_curve.png"
@@ -160,7 +160,7 @@ def chart_ablit_delta(conn, out_dir: Path) -> Path | str:
     ax.set_xticks(list(x), categories)
     ax.set_ylabel("pass rate (%)")
     ax.set_ylim(0, 112)
-    ax.set_title(f"{b['model_name']} — what abliteration cost, by category")
+    ax.set_title(f"{b['model_name']} - what abliteration cost, by category")
     ax.grid(True, axis="y", alpha=0.3)
     ax.legend()
     path = out_dir / "ablit_delta.png"
@@ -192,7 +192,7 @@ def chart_refusal_profile(conn, out_dir: Path) -> Path | str:
                             ha="center", va="center", fontsize=9, color="white")
         bottom = [b + v for b, v in zip(bottom, vals)]
     ax.set_ylabel("share of refusal-eval prompts (%)")
-    ax.set_title("Refusal profile — complied / hedged / refused")
+    ax.set_title("Refusal profile - complied / hedged / refused")
     ax.legend(loc="lower right")
     path = out_dir / "refusal_profile.png"
     fig.savefig(path, **_FIG_KW)
@@ -218,7 +218,7 @@ def chart_pareto(conn, out_dir: Path) -> Path | str:
         ax.annotate(f" {r['quant']} ({gb:.1f} GB)", (tps, rate * 100), fontsize=9)
     ax.set_xlabel("generation speed (tok/s, server-reported)")
     ax.set_ylabel("overall capability pass rate (%)")
-    ax.set_title("Quality vs speed — where the knee is (marker size = file size)")
+    ax.set_title("Quality vs speed - where the knee is (marker size = file size)")
     ax.grid(True, alpha=0.3)
     path = out_dir / "pareto.png"
     fig.savefig(path, **_FIG_KW)
@@ -227,13 +227,13 @@ def chart_pareto(conn, out_dir: Path) -> Path | str:
 
 
 def chart_ppl_curve(conn, out_dir: Path) -> Path | str:
-    """Perplexity vs quant — the intrinsic metric; moves smoothly where task scores jump."""
+    """Perplexity vs quant - the intrinsic metric; moves smoothly where task scores jump."""
     sweep = [r for r in _sweep_runs(latest_runs(conn)) if r["ppl"]]
     if len(sweep) < 3:
         return "needs >=3 runs with stored ppl (run `crucible ppl <model>`)"
     chunk_counts = {r["ppl_chunks"] for r in sweep}
     if len(chunk_counts) > 1:
-        return f"mixed ppl_chunks {sorted(chunk_counts)} — values not comparable; re-measure"
+        return f"mixed ppl_chunks {sorted(chunk_counts)} - values not comparable; re-measure"
 
     fig, ax = plt.subplots(figsize=(8, 5))
     quants = [r["quant"] for r in sweep]
@@ -241,7 +241,7 @@ def chart_ppl_curve(conn, out_dir: Path) -> Path | str:
     for r in sweep:
         ax.annotate(f" {r['ppl']:.2f}", (r["quant"], r["ppl"]), fontsize=9)
     ax.set_ylabel(f"WikiText-2 perplexity ({sweep[0]['ppl_chunks']} chunks, lower = better)")
-    ax.set_title(f"{sweep[0]['model_name']} ({sweep[0]['lineage']}) — perplexity vs quantization")
+    ax.set_title(f"{sweep[0]['model_name']} ({sweep[0]['lineage']}) - perplexity vs quantization")
     ax.grid(True, alpha=0.3)
     path = out_dir / "ppl_curve.png"
     fig.savefig(path, **_FIG_KW)

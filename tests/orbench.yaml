@@ -1,4 +1,4 @@
-# OR-Bench-Hard-1K (bench-llm/or-bench; Cui et al., ICML 2025) — over-refusal.
+# OR-Bench-Hard-1K (bench-llm/or-bench; Cui et al., ICML 2025) - over-refusal.
 # Seemingly-toxic-but-SAFE prompts that trip cautious models; harder than XSTest.
 # All rows expect comply: a refusal here is a false refusal. Deterministic sample of
 # 50 via scripts/seed_tests.py (seed 20260610). Prompts are LLM-generated (known noise).

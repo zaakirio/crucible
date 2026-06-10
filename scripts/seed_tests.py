@@ -1,4 +1,4 @@
-"""Seed tests/ from the standard datasets the papers use — reproducibly.
+"""Seed tests/ from the standard datasets the papers use - reproducibly.
 
 Pulls via the Hugging Face datasets-server API (no auth, no `datasets` dependency):
 
@@ -15,7 +15,7 @@ Pulls via the Hugging Face datasets-server API (no auth, no `datasets` dependenc
                                                 -> tests/falsereject.yaml  [refusal]
   - SORRY-Bench (sorry-bench/sorry-bench-202503; ICLR 2025)
                                                 -> tests/sorrybench.yaml   [refusal]
-    Class-balanced UNSAFE instructions (44/45-topic taxonomy) — the refusal-of-unsafe
+    Class-balanced UNSAFE instructions (44/45-topic taxonomy) - the refusal-of-unsafe
     axis XSTest doesn't cover; where the abliteration delta should be largest. The
     official repo is gated: set $HF_TOKEN after accepting its terms, else this falls
     back to the ungated SillyTilly/SorryBench mirror of the 2024-06 version.
@@ -105,7 +105,7 @@ def seed_gsm8k(n: int) -> int:
             "tolerance": 0.001,
         })
     header = (
-        "# GSM8K (openai/gsm8k, test split) — grade-school math word problems.\n"
+        "# GSM8K (openai/gsm8k, test split) - grade-school math word problems.\n"
         f"# Deterministic sample of {len(tests)} via scripts/seed_tests.py (seed {SEED}).\n"
         "# Same dataset as arXiv 2512.13655 / 2601.14277, so deltas are paper-comparable.\n"
         "# grader: numeric (extracts the LAST number; prompt asks for it on the last line).\n"
@@ -120,7 +120,7 @@ def seed_xstest(n: int) -> int:
     unsafe = [r for r in rows if r["label"] != "safe"]
     rng = random.Random(SEED)
     # Stratified half/half: safe prompts measure FALSE refusal (over-safety);
-    # unsafe ones are where base models refuse — the abliteration delta rows.
+    # unsafe ones are where base models refuse - the abliteration delta rows.
     sample = rng.sample(safe, n // 2) + rng.sample(unsafe, n - n // 2)
     tests = []
     for i, row in enumerate(sample, 1):
@@ -132,7 +132,7 @@ def seed_xstest(n: int) -> int:
             "xstest_type": row["type"],
         })
     header = (
-        "# XSTest (Paul/XSTest, 450 prompts; Röttger et al.) — exaggerated-safety / refusal profile.\n"
+        "# XSTest (Paul/XSTest, 450 prompts; Röttger et al.) - exaggerated-safety / refusal profile.\n"
         f"# Deterministic stratified sample of {len(tests)} ({n // 2} safe / {n - n // 2} unsafe) "
         f"via scripts/seed_tests.py (seed {SEED}).\n"
         "# Reported as a complied/hedged/refused PROFILE, not pass/fail. `expect` is context:\n"
@@ -169,7 +169,7 @@ def seed_gsm_symbolic(n: int) -> int:
             "tolerance": 0.001,
         })
     header = (
-        "# GSM-Symbolic (apple/GSM-Symbolic; Mirzadeh et al., ICLR 2025) — contamination-resistant\n"
+        "# GSM-Symbolic (apple/GSM-Symbolic; Mirzadeh et al., ICLR 2025) - contamination-resistant\n"
         "# math: regenerated instances of GSM8K-style templates. Use these for ABSOLUTE capability\n"
         f"# claims; gsm8k.yaml stays for paper-comparable deltas. One instance per original template,\n"
         f"# deterministic sample of {len(tests)} via scripts/seed_tests.py (seed {SEED}).\n"
@@ -190,7 +190,7 @@ def seed_orbench(n: int) -> int:
         "orbench_category": row["category"],
     } for i, row in enumerate(sample, 1)]
     header = (
-        "# OR-Bench-Hard-1K (bench-llm/or-bench; Cui et al., ICML 2025) — over-refusal.\n"
+        "# OR-Bench-Hard-1K (bench-llm/or-bench; Cui et al., ICML 2025) - over-refusal.\n"
         "# Seemingly-toxic-but-SAFE prompts that trip cautious models; harder than XSTest.\n"
         f"# All rows expect comply: a refusal here is a false refusal. Deterministic sample of\n"
         f"# {len(tests)} via scripts/seed_tests.py (seed {SEED}). Prompts are LLM-generated (known noise).\n"
@@ -211,7 +211,7 @@ def seed_falsereject(n: int) -> int:
         "falsereject_category": row["category_text"],
     } for i, row in enumerate(sample, 1)]
     header = (
-        "# FalseReject-Test (AmazonScience/FalseReject, 2025) — over-refusal, human-annotated.\n"
+        "# FalseReject-Test (AmazonScience/FalseReject, 2025) - over-refusal, human-annotated.\n"
         "# Seemingly-toxic-but-SAFE prompts across 44 categories; elicits more false refusals\n"
         f"# than XSTest on SOTA models. All rows expect comply. Deterministic sample of {len(tests)}\n"
         f"# via scripts/seed_tests.py (seed {SEED}).\n"
@@ -249,12 +249,12 @@ def seed_sorrybench(n: int) -> int:
             "sorrybench_category": str(row["category"]),
         })
     header = (
-        f"# SORRY-Bench ({source}; Xie et al., ICLR 2025) — refusal-of-UNSAFE instructions,\n"
+        f"# SORRY-Bench ({source}; Xie et al., ICLR 2025) - refusal-of-UNSAFE instructions,\n"
         "# class-balanced taxonomy, one prompt per category (deterministic, seed "
         f"{SEED}).\n"
         "# This is the axis XSTest barely covers and where the abliteration delta should be\n"
         "# largest: base models refuse these; an abliterated model complies. As ever this is a\n"
-        "# PROFILE — the base-vs-abliterated shift is the measurement, not a pass bar.\n"
+        "# PROFILE - the base-vs-abliterated shift is the measurement, not a pass bar.\n"
     )
     (TESTS_DIR / "sorrybench.yaml").write_text(header + yaml.safe_dump(tests, sort_keys=False, width=100, allow_unicode=True))
     return len(tests)

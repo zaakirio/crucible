@@ -1,4 +1,4 @@
-# Capability — math. grader: numeric (extracts the last number, compares within tolerance).
+# Capability - math. grader: numeric (extracts the last number, compares within tolerance).
 # Prompts ask for "just the number" to keep grading clean. Seeded by hand for the harness;
 # Module 01 follow-up swaps in items sampled from GSM8K so numbers are paper-comparable.
 - id: math-001

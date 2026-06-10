@@ -1,4 +1,4 @@
-# GSM-Symbolic (apple/GSM-Symbolic; Mirzadeh et al., ICLR 2025) — contamination-resistant
+# GSM-Symbolic (apple/GSM-Symbolic; Mirzadeh et al., ICLR 2025) - contamination-resistant
 # math: regenerated instances of GSM8K-style templates. Use these for ABSOLUTE capability
 # claims; gsm8k.yaml stays for paper-comparable deltas. One instance per original template,
 # deterministic sample of 20 via scripts/seed_tests.py (seed 20260610).

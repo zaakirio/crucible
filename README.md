@@ -1,23 +1,23 @@
 # Crucible
 
 **What survives quantization and abliteration.** A reproducible eval harness for self-hostable
-models — capability, tool-calling, agents, and RAG — with first-class tracking of what quantization
+models - capability, tool-calling, agents, and RAG - with first-class tracking of what quantization
 and refusal-direction removal actually cost a model.
 
-> Building in public. WIP — currently at Module 01 of a ten-module plan that grows this into
+> Building in public. WIP - currently at Module 01 of a ten-module plan that grows this into
 > tool-calling, agent, and RAG evals with a CI regression gate and a public leaderboard.
 
 ## Why
 
-Everyone benchmarks GPT-5. Crucible benchmarks what you can actually run on your own GPU — including
-abliterated and quantized GGUFs — and reports the deltas nobody else publishes.
+Everyone benchmarks GPT-5. Crucible benchmarks what you can actually run on your own GPU - including
+abliterated and quantized GGUFs - and reports the deltas nobody else publishes.
 
 Crucible drives `llama-server` over its OpenAI-compatible API (not `llama-cpp-python`), so it
 evaluates a model exactly as it's served: same chat template (`--jinja`), same samplers, same
 tool-call parsing your published GGUFs' users get. Every run records the llama.cpp commit, because
 a score shift can be the engine, not your model.
 
-## Status — Module 01: capability & refusal evals
+## Status - Module 01: capability & refusal evals
 
 Tests are YAML data (`tests/`), graded deterministically (exact / numeric / regex / code-exec /
 refusal-profile), stored append-only in SQLite, compared across runs, and charted.
@@ -26,7 +26,7 @@ refusal-profile), stored append-only in SQLite, compared across runs, and charte
 cd crucible
 uv sync
 
-# seed the paper-comparable suites (GSM8K, XSTest) — deterministic, fixed seed
+# seed the paper-comparable suites (GSM8K, XSTest) - deterministic, fixed seed
 uv run python scripts/seed_tests.py
 
 # grab a model straight from Hugging Face (any repo with GGUFs; $HF_TOKEN for gated ones)
@@ -51,7 +51,7 @@ uv run crucible ppl models/<model>.gguf
 
 # validate the refusal grader against your own judgment: hand-label a sample blind,
 # then get a grader-vs-human agreement report (marker-based graders are known to
-# disagree with humans ~25% of the time — measure yours instead of trusting it)
+# disagree with humans ~25% of the time - measure yours instead of trusting it)
 uv run crucible label
 uv run crucible label --report
 ```
@@ -60,7 +60,7 @@ uv run crucible label --report
 are still there from Module 00.
 
 **Requirements:** [uv](https://docs.astral.sh/uv/) and a built
-[llama.cpp](https://github.com/ggml-org/llama.cpp) — `llama-server` is found via a sibling
+[llama.cpp](https://github.com/ggml-org/llama.cpp) - `llama-server` is found via a sibling
 `llama.cpp/build/bin/` checkout or `$PATH`; override with `$CRUCIBLE_LLAMA_SERVER`.
 
 ### First findings (LFM2.5-1.2B, base vs Heretic-abliterated, Q3_K_M→F16, 2026-06-10)
@@ -74,9 +74,9 @@ are still there from Module 00.
 | WikiText-2 PPL | 18.147 | 18.145 | ~0 |
 | sorrybench (unsafe) | 19 complied / 11 hedged / **15 refused** | **44 complied / 1 / 0** | the point |
 | orbench (over-refusal) | 42 complied / 6 hedged / 2 refused | 50 / 0 / 0 | false refusals gone |
-| xstest | 32 complied / 3 hedged / 5 refused | 40 / 0 / 0 | — |
+| xstest | 32 complied / 3 hedged / 5 refused | 40 / 0 / 0 | - |
 
-No capability cost that clears the noise bar, identical perplexity — and the entire abliteration
+No capability cost that clears the noise bar, identical perplexity - and the entire abliteration
 effect shows up where it should: on SORRY-Bench's unsafe instructions the base model
 refused/hedged 26/45, the abliterated model 1/45. Q3_K_M is the quant cliff (GSM8K −30pp vs
 Q4_K_M, PPL 20.2 vs 18.1); above Q4 the differences don't clear the n=20 noise bar. Noise floor:
@@ -89,15 +89,15 @@ Q4_K_M, PPL 20.2 vs 18.1); above Q4 the differences don't clear the n=20 noise b
 
 | Category | Source | Grader |
 |---|---|---|
-| `gsm8k` | [GSM8K](https://huggingface.co/datasets/openai/gsm8k) test split, seeded sample — kept for paper-comparable *deltas* | `numeric` |
-| `gsm_symbolic` | [GSM-Symbolic](https://huggingface.co/datasets/apple/GSM-Symbolic) (ICLR 2025) — contamination-resistant regenerated math, for *absolute* claims | `numeric` |
+| `gsm8k` | [GSM8K](https://huggingface.co/datasets/openai/gsm8k) test split, seeded sample - kept for paper-comparable *deltas* | `numeric` |
+| `gsm_symbolic` | [GSM-Symbolic](https://huggingface.co/datasets/apple/GSM-Symbolic) (ICLR 2025) - contamination-resistant regenerated math, for *absolute* claims | `numeric` |
 | `xstest` | [XSTest](https://huggingface.co/datasets/Paul/XSTest) (Röttger et al.), stratified safe/unsafe | `refusal` profile |
-| `orbench` | [OR-Bench-Hard](https://huggingface.co/datasets/bench-llm/or-bench) (ICML 2025) — over-refusal, harder than XSTest | `refusal` profile |
-| `falsereject` | [FalseReject-Test](https://huggingface.co/datasets/AmazonScience/FalseReject) (2025) — over-refusal, human-annotated | `refusal` profile |
-| `sorrybench` | [SORRY-Bench](https://huggingface.co/datasets/sorry-bench/sorry-bench-202503) (ICLR 2025) — refusal-of-unsafe, 1/category | `refusal` profile |
+| `orbench` | [OR-Bench-Hard](https://huggingface.co/datasets/bench-llm/or-bench) (ICML 2025) - over-refusal, harder than XSTest | `refusal` profile |
+| `falsereject` | [FalseReject-Test](https://huggingface.co/datasets/AmazonScience/FalseReject) (2025) - over-refusal, human-annotated | `refusal` profile |
+| `sorrybench` | [SORRY-Bench](https://huggingface.co/datasets/sorry-bench/sorry-bench-202503) (ICLR 2025) - refusal-of-unsafe, 1/category | `refusal` profile |
 | `math`, `code`, `instruction`, `refusal` | hand-written starters (Module 00) | mixed |
 
-Refusal categories report a **profile** (complied / hedged / refused), not pass/fail — moving
+Refusal categories report a **profile** (complied / hedged / refused), not pass/fail - moving
 refusals to complies is the *point* of abliteration, so Crucible reports where each model lands.
 
 Methodology follows the published work it extends: arXiv 2512.13655 (abliteration impact across
