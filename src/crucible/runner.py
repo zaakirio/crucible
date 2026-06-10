@@ -6,6 +6,7 @@ noise check), grades the response, and appends rows to SQLite.
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from datetime import datetime, timezone
@@ -37,11 +38,23 @@ def parse_model_meta(model_path: Path) -> tuple[str, str | None, str]:
     return name, quant, lineage
 
 
-def load_tests(tests_dir: Path) -> list[tuple[str, dict]]:
-    """Load every tests/*.yaml file. Category = filename stem. Returns [(category, test), ...]."""
+def load_tests(tests_dir: Path, only: set[str] | None = None) -> list[tuple[str, dict]]:
+    """Load every tests/*.yaml file. Category = filename stem. Returns [(category, test), ...].
+
+    `only` restricts to the named categories; a name with a trailing * is a prefix match
+    (e.g. "toolcall_*" selects every tool-calling suite).
+    """
+    def wanted(category: str) -> bool:
+        if only is None:
+            return True
+        return any(category == o or (o.endswith("*") and category.startswith(o[:-1]))
+                   for o in only)
+
     out: list[tuple[str, dict]] = []
     for path in sorted(tests_dir.glob("*.yaml")):
         category = path.stem
+        if not wanted(category):
+            continue
         items = yaml.safe_load(path.read_text()) or []
         for t in items:
             out.append((category, t))
@@ -57,11 +70,12 @@ def run_suite(
     repeat: int = 1,
     ngl: int = 99,
     ctx: int = 4096,
+    only: set[str] | None = None,
     on_progress=None,
 ) -> int:
     model_path = Path(model_path).expanduser().resolve()
     tests_dir = Path(tests_dir)
-    tests = load_tests(tests_dir)
+    tests = load_tests(tests_dir, only)
     if not tests:
         raise SystemExit(f"No tests found under {tests_dir}/")
 
@@ -87,16 +101,24 @@ def run_suite(
         for category, test in tests:
             for rep in range(repeat):
                 t0 = time.perf_counter()
-                res = chat(srv.base_url, [{"role": "user", "content": test["prompt"]}])
+                res = chat(
+                    srv.base_url,
+                    [{"role": "user", "content": test["prompt"]}],
+                    tools=test.get("tools"),
+                )
                 latency_ms = int((time.perf_counter() - t0) * 1000)
-                g = grade(test, res.text)
+                g = grade(test, res.text, res.tool_calls)
+                stored = res.text
+                if res.tool_calls:  # tool-call turns have empty text; store what was called
+                    calls = [{"name": c.name, "arguments": c.raw_arguments} for c in res.tool_calls]
+                    stored = json.dumps({"tool_calls": calls, "content": res.text})
                 db.insert_result(
                     conn,
                     run_id=run_id,
                     test_id=test["id"],
                     category=category,
                     rep=rep,
-                    response=res.text,
+                    response=stored,
                     passed=None if g.passed is None else int(g.passed),
                     label=g.label,
                     detail=g.detail,

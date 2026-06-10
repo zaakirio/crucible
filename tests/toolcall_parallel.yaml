@@ -1,0 +1,1253 @@
+# Tool calling: parallel calls in one turn.
+# Sampled from BFCL v4 (Berkeley Function Calling Leaderboard; Patil et al.),
+# github.com/ShishirPatil/gorilla, Apache 2.0. Deterministic sample via
+# scripts/seed_tools.py (seed 20260610). Graded BFCL-AST style on llama-server's
+# parsed tool_calls: name match, args within allowed value lists, all-or-nothing.
+- id: tc-parallel-001
+  bfcl_id: parallel_86
+  prompt: '"Imagine you are conducting an experiment with two different objects. The first object is accelerated
+    at a rate of 5 m/s^2 and travels a distance of 100 meters. The second object is accelerated at a rate of 10
+    m/s^2 and travels a distance of 200 meters. Both objects start from rest. Can you calculate the final velocity
+    of each object using the kinematics.final_velocity_from_distance function?"'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: kinematics_final_velocity_from_distance
+      description: Calculate the final velocity of an object given the acceleration and distance travelled, assuming
+        initial velocity is 0.
+      parameters:
+        type: object
+        properties:
+          acceleration:
+            type: integer
+            description: Acceleration of the object, m/s^2.
+          distance:
+            type: integer
+            description: Distance traveled by the object, m.
+          initial_velocity:
+            type: integer
+            description: Initial velocity of the object. Default is 0, m/s
+        required:
+        - acceleration
+        - distance
+  expected_calls:
+  - kinematics_final_velocity_from_distance:
+      acceleration:
+      - 5
+      distance:
+      - 100
+      initial_velocity:
+      - ''
+      - 0
+  - kinematics_final_velocity_from_distance:
+      acceleration:
+      - 10
+      distance:
+      - 200
+      initial_velocity:
+      - ''
+      - 0
+- id: tc-parallel-002
+  bfcl_id: parallel_38
+  prompt: What's the driving distance between New York and Washington DC, and between Los Angeles and San Francisco
+    with optional parameter shortest route enabled?
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: calc_distance
+      description: Calculate the driving distance between two locations.
+      parameters:
+        type: object
+        properties:
+          start_loc:
+            type: string
+            description: Starting location.
+          end_loc:
+            type: string
+            description: Ending location.
+          shortest_route:
+            type: boolean
+            default: 'false'
+            description: If true, returns the shortest driving route.
+        required:
+        - start_loc
+        - end_loc
+  expected_calls:
+  - calc_distance:
+      start_loc:
+      - New York
+      - New York, NY
+      - New York City
+      - NYC
+      end_loc:
+      - Washington DC
+      - Washington D.C.
+      shortest_route:
+      - true
+  - calc_distance:
+      start_loc:
+      - Los Angeles
+      - Los Angeles, CA
+      - LA
+      end_loc:
+      - San Francisco
+      - SF
+      shortest_route:
+      - true
+- id: tc-parallel-003
+  bfcl_id: parallel_multiple_119
+  prompt: '"Can you tell me how many all-time goals Cristiano Ronaldo scored for Manchester United in the Premier
+    League, then compare that with the top scorer of Manchester United in the same competition, and finally, tell
+    me who was the top scorer of the Premier League in the 2019-2020 season?"'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: team_stats_get_top_scorer
+      description: Fetch the top scorer of a specified football team.
+      parameters:
+        type: object
+        properties:
+          team_name:
+            type: string
+            description: The name of the football team.
+          competition:
+            type: string
+            description: Competition for which to fetch stats (optional). Default is 'Premier League' if not specified.
+        required:
+        - team_name
+  - type: function
+    function:
+      name: league_stats_get_top_scorer
+      description: Fetch the top scorer of a specified football league.
+      parameters:
+        type: object
+        properties:
+          league_name:
+            type: string
+            description: The name of the football league.
+          season:
+            type: string
+            description: Season for which to fetch stats (optional). Default is '2019-2020' if not specified.
+        required:
+        - league_name
+  - type: function
+    function:
+      name: player_stats_get_all_time_goals
+      description: Fetch all-time goals scored by a particular football player for a specified team.
+      parameters:
+        type: object
+        properties:
+          player_name:
+            type: string
+            description: The name of the football player.
+          team_name:
+            type: string
+            description: The name of the team for which player has played.
+          competition:
+            type: string
+            description: Competition for which to fetch stats (optional). Default is 'Premier League' if not specified.
+        required:
+        - player_name
+        - team_name
+  expected_calls:
+  - player_stats_get_all_time_goals:
+      player_name:
+      - Cristiano Ronaldo
+      team_name:
+      - Manchester United
+      competition:
+      - Premier League
+      - PL
+      - ''
+  - team_stats_get_top_scorer:
+      team_name:
+      - Manchester United
+      competition:
+      - Premier League
+      - PL
+      - ''
+  - league_stats_get_top_scorer:
+      league_name:
+      - Premier League
+      - PL
+      - ''
+      season:
+      - 2019-2020
+      - 19-20
+      - 2019/2020
+      - '2019'
+      - '2020'
+      - ''
+- id: tc-parallel-004
+  bfcl_id: parallel_171
+  prompt: '"Can you calculate the return on equity for two companies? The first company has a net income of $1,000,000,
+    shareholder''s equity of $5,000,000, and paid dividends of $200,000. The second company has a net income of
+    $2,000,000, shareholder''s equity of $10,000,000, but did not pay any dividends."'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: calculate_return_on_equity
+      description: Calculate a company's return on equity based on its net income, shareholder's equity, and dividends
+        paid.
+      parameters:
+        type: object
+        properties:
+          net_income:
+            type: integer
+            description: The company's net income.
+          shareholder_equity:
+            type: integer
+            description: The company's total shareholder's equity.
+          dividends_paid:
+            type: integer
+            description: The total dividends paid by the company. Optional. If not given, assumes it's 0 as default.
+        required:
+        - net_income
+        - shareholder_equity
+  expected_calls:
+  - calculate_return_on_equity:
+      net_income:
+      - 1000000
+      shareholder_equity:
+      - 5000000
+      dividends_paid:
+      - 200000
+  - calculate_return_on_equity:
+      net_income:
+      - 2000000
+      shareholder_equity:
+      - 10000000
+      dividends_paid:
+      - 0
+      - ''
+- id: tc-parallel-005
+  bfcl_id: parallel_multiple_58
+  prompt: '"Imagine you are a geometry teacher preparing for your next class. You have two shapes, a triangle and
+    a circle, that you want to discuss in detail. For the triangle, the lengths of the sides are 5 units, 7 units,
+    and 9 units respectively. You want to calculate the area, perimeter, and internal angles of this triangle. For
+    the circle, the radius is 3 units. You want to calculate the area and circumference of this circle. Can you
+    provide these details?"'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: circle_properties_get
+      description: Retrieve the dimensions, such as area and circumference, of a circle if radius is given.
+      parameters:
+        type: object
+        properties:
+          radius:
+            type: number
+            description: The length of radius of the circle.
+          get_area:
+            type: boolean
+            description: A flag to determine whether to calculate the area of circle. Default is true.
+          get_circumference:
+            type: boolean
+            description: A flag to determine whether to calculate the circumference of circle. Default is true.
+        required:
+        - radius
+  - type: function
+    function:
+      name: triangle_properties_get
+      description: Retrieve the dimensions, such as area and perimeter, of a triangle if lengths of three sides
+        are given.
+      parameters:
+        type: object
+        properties:
+          side1:
+            type: number
+            description: The length of first side of the triangle.
+          side2:
+            type: number
+            description: The length of second side of the triangle.
+          side3:
+            type: number
+            description: The length of third side of the triangle.
+          get_area:
+            type: boolean
+            description: A flag to determine whether to calculate the area of triangle. Default is true.
+          get_perimeter:
+            type: boolean
+            description: A flag to determine whether to calculate the perimeter of triangle. Default is true.
+          get_angles:
+            type: boolean
+            description: A flag to determine whether to calculate the internal angles of triangle. Default is true.
+        required:
+        - side1
+        - side2
+        - side3
+  expected_calls:
+  - triangle_properties_get:
+      side1:
+      - 5.0
+      side2:
+      - 7.0
+      side3:
+      - 9.0
+      get_area:
+      - ''
+      - true
+      get_perimeter:
+      - ''
+      - true
+      get_angles:
+      - ''
+      - true
+  - circle_properties_get:
+      radius:
+      - 3.0
+      get_area:
+      - ''
+      - true
+      get_circumference:
+      - ''
+      - true
+- id: tc-parallel-006
+  bfcl_id: parallel_184
+  prompt: '"Can you help me find the roots of two different quadratic equations? The first equation is 3x^2 + 7x
+    + 2 = 0, where ''a'' is the coefficient of x^2 (3), ''b'' is the coefficient of x (7), and ''c'' is the constant
+    term (2). The second equation is 5x^2 - 4x + 1 = 0, where ''a'' is the coefficient of x^2 (5), ''b'' is the
+    coefficient of x (-4), and ''c'' is the constant term (1)."'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: algebra_quadratic_roots
+      description: Find the roots of a quadratic equation ax^2 + bx + c = 0.
+      parameters:
+        type: object
+        properties:
+          a:
+            type: integer
+            description: Coefficient of x^2.
+          b:
+            type: integer
+            description: Coefficient of x.
+          c:
+            type: integer
+            description: Constant term.
+        required:
+        - a
+        - b
+        - c
+  expected_calls:
+  - algebra_quadratic_roots:
+      a:
+      - 3
+      b:
+      - 7
+      c:
+      - 2
+  - algebra_quadratic_roots:
+      a:
+      - 5
+      b:
+      - -4
+      c:
+      - 1
+- id: tc-parallel-007
+  bfcl_id: parallel_multiple_107
+  prompt: '"Can you help me find a book? I''m not sure of the title, but I know it''s a mystery novel. I''d like
+    to search in the library in New York City first, then I''d like to check Google Books and Open Library. Can
+    you assist with these searches?"'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: google_books_search
+      description: Search for a book in the Google Books library with optional parameters
+      parameters:
+        type: object
+        properties:
+          genre:
+            type: string
+            description: Genre of the book
+          title:
+            type: string
+            description: Title of the book. Default is not use it if not specified.
+        required:
+        - genre
+  - type: function
+    function:
+      name: library_search_books
+      description: Search for a book in a given library with optional parameters
+      parameters:
+        type: object
+        properties:
+          location:
+            type: string
+            description: Name or city of library
+          genre:
+            type: string
+            description: Genre of the book
+          title:
+            type: string
+            description: Title of the book. Default is not use it if not specified.
+        required:
+        - location
+        - genre
+  - type: function
+    function:
+      name: openlibrary_books_search
+      description: Search for a book in the Open Library with optional parameters
+      parameters:
+        type: object
+        properties:
+          genre:
+            type: string
+            description: Genre of the book
+          title:
+            type: string
+            description: Title of the book. Default is not use it if not specified.
+        required:
+        - genre
+  expected_calls:
+  - library_search_books:
+      location:
+      - New York City
+      - NYC
+      genre:
+      - mystery
+      title:
+      - ''
+  - google_books_search:
+      genre:
+      - mystery
+      title:
+      - ''
+  - openlibrary_books_search:
+      genre:
+      - mystery
+      title:
+      - ''
+- id: tc-parallel-008
+  bfcl_id: parallel_multiple_118
+  prompt: '"Can you help me create a piece of music in D Minor with a tempo of 120 beats per minute and then generate
+    an audio signal with a frequency of 440 Hz and an amplitude of 0.5? After that, I would like to generate another
+    piece of music in E Major with a tempo of 90 beats per minute and a time signature of 3/4. Finally, generate
+    another audio signal with a frequency of 300 Hz, an amplitude of 0.7, and a duration of 5 seconds."'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: audio_generate
+      description: Generate an audio signal given a frequency, amplitude, and duration.
+      parameters:
+        type: object
+        properties:
+          frequency:
+            type: integer
+            description: Frequency of the audio signal in Hz.
+          amplitude:
+            type: number
+            description: Amplitude of the audio signal.
+          duration:
+            type: number
+            description: Duration of the audio signal in seconds. Default is 1 second if not specified.
+            optional: true
+        required:
+        - frequency
+        - amplitude
+  - type: function
+    function:
+      name: music_generate
+      description: Generate a piece of music given a key, tempo, and time signature.
+      parameters:
+        type: object
+        properties:
+          key:
+            type: string
+            description: The key of the piece, e.g., C Major.
+          tempo:
+            type: integer
+            description: Tempo of the piece in beats per minute.
+          time_signature:
+            type: string
+            description: Time signature of the piece, e.g., 4/4. Default is '4/4' if not specified.
+            optional: true
+        required:
+        - key
+        - tempo
+  expected_calls:
+  - music_generate:
+      key:
+      - D Minor
+      - Dm
+      tempo:
+      - 120
+      time_signature:
+      - 4/4
+      - ''
+  - audio_generate:
+      frequency:
+      - 440
+      amplitude:
+      - 0.5
+      duration:
+      - ''
+  - music_generate:
+      key:
+      - E Major
+      - EM
+      tempo:
+      - 90
+      time_signature:
+      - 3/4
+  - audio_generate:
+      frequency:
+      - 300
+      amplitude:
+      - 0.7
+      duration:
+      - 5.0
+- id: tc-parallel-009
+  bfcl_id: parallel_32
+  prompt: Provide me the major events during the presidency of Abraham Lincoln and George Washington.
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: us_history_events_by_presidency
+      description: Retrieve the major events during the presidency of a specified US president.
+      parameters:
+        type: object
+        properties:
+          president_name:
+            type: string
+            description: The name of the US president.
+          start_year:
+            type: integer
+            description: The start year of their presidency (optional).
+            default: 0
+          end_year:
+            type: integer
+            description: The end year of their presidency (optional).
+            default: 2000
+        required:
+        - president_name
+  expected_calls:
+  - us_history_events_by_presidency:
+      president_name:
+      - Abraham Lincoln
+      start_year:
+      - ''
+      - 0
+      end_year:
+      - ''
+      - 2000
+  - us_history_events_by_presidency:
+      president_name:
+      - George Washington
+      start_year:
+      - ''
+      - 0
+      end_year:
+      - ''
+      - 2000
+- id: tc-parallel-010
+  bfcl_id: parallel_multiple_54
+  prompt: In game Battle Reign, change the armor level to 5 and find me a game guide for how to win in snowy weather
+    conditions. Also find me any strategy guides available for game Shadow Fall.
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: BattleReignGameAPI_update_player_equipment
+      description: Modify the player's equipment level for specified attributes
+      parameters:
+        type: object
+        properties:
+          attribute:
+            type: string
+            description: The attribute of the equipment to modify.
+          level:
+            type: integer
+            description: The level to modify the attribute to.
+          playerID:
+            type: integer
+            description: Player ID of the player. Default to 123
+            default: 123
+        required:
+        - attribute
+        - level
+  - type: function
+    function:
+      name: GameGuideAPI_search_guide
+      description: Search for game guides given specific conditions and preferences
+      parameters:
+        type: object
+        properties:
+          game:
+            type: string
+            description: Name of the game.
+          condition:
+            type: string
+            description: 'Specific game conditions. (eg: ''snowy weather'', ''hard mode'').'
+            default: ''
+          type:
+            type: string
+            description: 'Specific type of guide. (eg: ''strategy'', ''walkthrough'')'
+            default: ''
+        required:
+        - game
+  expected_calls:
+  - BattleReignGameAPI_update_player_equipment:
+      attribute:
+      - armor
+      level:
+      - 5
+      playerID:
+      - 123
+      - ''
+  - GameGuideAPI_search_guide:
+      game:
+      - Battle Reign
+      condition:
+      - snowy weather
+      type:
+      - ''
+  - GameGuideAPI_search_guide:
+      game:
+      - Shadow Fall
+      type:
+      - strategy
+      condition:
+      - ''
+- id: tc-parallel-011
+  bfcl_id: parallel_179
+  prompt: What were the stock prices of Apple Inc. listed on NASDAQ and Microsoft Corporation listed on NYSE for
+    the past 10 and 15 days respectively?
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: get_stock_price
+      description: Retrieve the stock price for a specific company and time frame.
+      parameters:
+        type: object
+        properties:
+          company:
+            type: string
+            description: The ticker symbol of the company.
+          days:
+            type: integer
+            description: Number of past days for which the stock price is required.
+          exchange:
+            type: string
+            description: The stock exchange where the company is listed, default is NYSE
+        required:
+        - company
+        - days
+  expected_calls:
+  - get_stock_price:
+      company:
+      - AAPL
+      days:
+      - 10
+      exchange:
+      - NASDAQ
+  - get_stock_price:
+      company:
+      - MSFT
+      days:
+      - 15
+      exchange:
+      - NYSE
+      - ''
+- id: tc-parallel-012
+  bfcl_id: parallel_multiple_149
+  prompt: '"Can you help me with a few tasks? First, I need to book a hotel room in Paris for 5 nights starting
+    from 20th June. I prefer a deluxe room and would like the hotel to have a gym and offer free breakfast. Secondly,
+    I am curious about the last match played by the soccer club ''Manchester United''. Could you fetch the details
+    for me? Also, include the match statistics. Lastly, I recently measured my weight and height. I weigh 75 kilograms
+    and my height is 1.8 meters. Could you calculate my Body Mass Index (BMI)?"'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: hotel_booking
+      description: Books a hotel room given the location, room type, stay duration and any additional preferences.
+      parameters:
+        type: object
+        properties:
+          location:
+            type: string
+            description: The city where you want to book the hotel.
+          room_type:
+            type: string
+            description: 'Type of the room required. Options: ''single'', ''double'', ''deluxe'', etc.'
+          duration:
+            type: integer
+            description: The number of nights you want to book the hotel for.
+          start_date:
+            type: string
+            description: The date when your stay begins.
+          preferences:
+            type: array
+            items:
+              type: string
+              enum:
+              - pet_friendly
+              - gym
+              - swimming_pool
+              - free_breakfast
+              - parking
+            description: Optional preferences of stay at the hotel. Default is all if not specified.
+        required:
+        - location
+        - room_type
+        - duration
+        - start_date
+  - type: function
+    function:
+      name: soccer_get_last_match
+      description: Retrieve the details of the last match played by a specified soccer club.
+      parameters:
+        type: object
+        properties:
+          team_name:
+            type: string
+            description: The name of the soccer club.
+          include_stats:
+            type: boolean
+            description: If true, include match statistics like possession, shots on target etc. Default is false.
+        required:
+        - team_name
+  - type: function
+    function:
+      name: calculate_BMI
+      description: Calculate the Body Mass Index (BMI) given a person's weight and height.
+      parameters:
+        type: object
+        properties:
+          weight_kg:
+            type: integer
+            description: The weight of the person in kilograms.
+          height_m:
+            type: number
+            description: The height of the person in meters.
+        required:
+        - weight_kg
+        - height_m
+  expected_calls:
+  - hotel_booking:
+      location:
+      - Paris
+      room_type:
+      - deluxe
+      duration:
+      - 5
+      start_date:
+      - 20th June
+      - '2023-06-20'
+      - 06/20/2023
+      - Jun.20,2023
+      preferences:
+      - - gym
+        - free_breakfast
+  - soccer_get_last_match:
+      team_name:
+      - Manchester United
+      include_stats:
+      - true
+  - calculate_BMI:
+      weight_kg:
+      - 75
+      height_m:
+      - 1.8
+- id: tc-parallel-013
+  bfcl_id: parallel_multiple_111
+  prompt: '"Could you please provide me with the origin and founder information of Buddhism, and then do the same
+    for Hinduism? After that, could you also tell me about the core beliefs and practices of both these religions?"'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: religion_get_core_beliefs
+      description: Retrieves the core beliefs and practices of a specified religion.
+      parameters:
+        type: object
+        properties:
+          religion:
+            type: string
+            description: Name of the religion for which to retrieve the core beliefs and practices.
+        required:
+        - religion
+  - type: function
+    function:
+      name: religion_get_origin
+      description: Retrieves the origin and founder information of a specified religion.
+      parameters:
+        type: object
+        properties:
+          religion:
+            type: string
+            description: Name of the religion for which to retrieve the founder and origin.
+        required:
+        - religion
+  expected_calls:
+  - religion_get_origin:
+      religion:
+      - Buddhism
+  - religion_get_origin:
+      religion:
+      - Hinduism
+  - religion_get_core_beliefs:
+      religion:
+      - Hinduism
+  - religion_get_core_beliefs:
+      religion:
+      - Buddhism
+- id: tc-parallel-014
+  bfcl_id: parallel_135
+  prompt: What is the total distance in kilometers if I start my journey from New York, travel to Los Angeles, then
+    from Los Angeles to Miami, and finally from Miami back to New York?
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: geo_distance_calculate
+      description: Calculate the geographic distance between two given locations.
+      parameters:
+        type: object
+        properties:
+          start_location:
+            type: string
+            description: The starting location for the distance calculation.
+          end_location:
+            type: string
+            description: The destination location for the distance calculation.
+          units:
+            type: string
+            description: Optional. The desired units for the resulting distance ('miles' or 'kilometers'). Defaults
+              to 'miles'.
+        required:
+        - start_location
+        - end_location
+  expected_calls:
+  - geo_distance_calculate:
+      start_location:
+      - New York
+      - New York, NY
+      - New York, NY
+      - NYC
+      end_location:
+      - Los Angeles
+      - Los Angeles, CA
+      - LA
+      units:
+      - kilometers
+      - ''
+  - geo_distance_calculate:
+      start_location:
+      - Los Angeles
+      - Los Angeles, CA
+      - LA
+      end_location:
+      - Miami
+      units:
+      - kilometers
+      - ''
+  - geo_distance_calculate:
+      start_location:
+      - Miami
+      end_location:
+      - New York
+      - New York, NY
+      - NYC
+      units:
+      - kilometers
+      - ''
+- id: tc-parallel-015
+  bfcl_id: parallel_12
+  prompt: Build a decision tree classifier model with gini criterion, maximum depth of 5 and random state of 1,
+    another with entropy criterion, maximum depth of 10 and random state of 1.
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: model_DecisionTreeClassifier
+      description: Build a Decision Tree Classifier model with provided criteria
+      parameters:
+        type: object
+        properties:
+          criterion:
+            type: string
+            description: The function to measure the quality of a split, either 'gini' for the Gini impurity or
+              'entropy' for the information gain.
+          max_depth:
+            type: integer
+            description: The maximum depth of the tree, specifying how deep the tree can be.
+          random_state:
+            type: integer
+            description: Controls the randomness of the estimator
+        required:
+        - criterion
+        - max_depth
+        - random_state
+  expected_calls:
+  - model_DecisionTreeClassifier:
+      criterion:
+      - gini
+      max_depth:
+      - 5
+      random_state:
+      - 1
+  - model_DecisionTreeClassifier:
+      criterion:
+      - entropy
+      max_depth:
+      - 10
+      random_state:
+      - 1
+- id: tc-parallel-016
+  bfcl_id: parallel_multiple_104
+  prompt: '"Can you provide me with a 5-day air quality forecast for New York, a 7-day weather forecast for Los
+    Angeles, news articles on ''global warming'' for the past 3 days, and a 2-day air quality forecast for Beijing?"'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: news
+      description: Retrieve news articles for a specific topic.
+      parameters:
+        type: object
+        properties:
+          topic:
+            type: string
+            description: The topic that you want to get the news for.
+          days:
+            type: integer
+            description: Number of past days for which to retrieve the news.
+        required:
+        - topic
+        - days
+  - type: function
+    function:
+      name: air_quality_forecast
+      description: Retrieve an air quality forecast for a specific location and time frame.
+      parameters:
+        type: object
+        properties:
+          location:
+            type: string
+            description: The city that you want to get the air quality forecast for.
+          days:
+            type: integer
+            description: Number of days for the forecast.
+        required:
+        - location
+        - days
+  - type: function
+    function:
+      name: weather_forecast
+      description: Retrieve a weather forecast for a specific location and time frame.
+      parameters:
+        type: object
+        properties:
+          location:
+            type: string
+            description: The city that you want to get the weather for.
+          days:
+            type: integer
+            description: Number of days for the forecast.
+        required:
+        - location
+        - days
+  expected_calls:
+  - air_quality_forecast:
+      location:
+      - New York
+      - NY
+      days:
+      - 5
+  - weather_forecast:
+      location:
+      - Los Angeles
+      - LA
+      days:
+      - 7
+  - news:
+      topic:
+      - global warming
+      days:
+      - 3
+  - air_quality_forecast:
+      location:
+      - Beijing
+      days:
+      - 2
+- id: tc-parallel-017
+  bfcl_id: parallel_multiple_98
+  prompt: '"Could you help me with a two-step conversion? First, I have 5000 Japanese Yen that I would like to convert
+    into US Dollars. After that, I have a measurement of 15 kilometers that I would like to convert into miles.
+    Can you tell me how much I would have in US Dollars and how many miles I would have?"'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: currency_conversion
+      description: Convert a value from one currency to another.
+      parameters:
+        type: object
+        properties:
+          amount:
+            type: number
+            description: The amount to be converted.
+          from_currency:
+            type: string
+            description: The currency to convert from.
+          to_currency:
+            type: string
+            description: The currency to convert to.
+        required:
+        - amount
+        - from_currency
+        - to_currency
+  - type: function
+    function:
+      name: unit_conversion
+      description: Convert a value from one unit to another.
+      parameters:
+        type: object
+        properties:
+          value:
+            type: number
+            description: The value to be converted.
+          from_unit:
+            type: string
+            description: The unit to convert from.
+          to_unit:
+            type: string
+            description: The unit to convert to.
+        required:
+        - value
+        - from_unit
+        - to_unit
+  expected_calls:
+  - currency_conversion:
+      amount:
+      - 5000.0
+      from_currency:
+      - Japanese Yen
+      - JPY
+      to_currency:
+      - US Dollars
+      - USD
+      - US Dollar
+  - unit_conversion:
+      value:
+      - 15.0
+      from_unit:
+      - km
+      - kilometer
+      - kilometers
+      to_unit:
+      - mi
+      - mile
+      - miles
+- id: tc-parallel-018
+  bfcl_id: parallel_multiple_126
+  prompt: '"Can you help me find a recipe that uses chicken as the main ingredient and doesn''t require more than
+    5 ingredients? After that, could you also find a restaurant that serves Italian cuisine and falls within a mid-range
+    price? And finally, could you find another recipe that uses beef as the main ingredient and requires no more
+    than 7 ingredients?"'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: restaurant_find
+      description: Locate restaurants based on specific criteria such as cuisine and price range
+      parameters:
+        type: object
+        properties:
+          cuisine:
+            type: string
+            description: The type of cuisine preferred.
+          price:
+            type: array
+            items:
+              type: string
+            description: Price range of the restaurant in format ['low', 'mid', 'high']. Default is 'mid' if not
+              specified.
+        required:
+        - cuisine
+  - type: function
+    function:
+      name: recipe_find
+      description: Locate cooking recipes based on specific criteria such as main ingredient and number of ingredients
+      parameters:
+        type: object
+        properties:
+          mainIngredient:
+            type: string
+            description: Main ingredient for the recipe.
+          ingredientLimit:
+            type: integer
+            description: Max number of ingredients the recipe should use.
+        required:
+        - mainIngredient
+        - ingredientLimit
+  expected_calls:
+  - recipe_find:
+      mainIngredient:
+      - chicken
+      ingredientLimit:
+      - 5
+  - restaurant_find:
+      cuisine:
+      - Italian
+      price:
+      - - mid
+      - ''
+  - recipe_find:
+      mainIngredient:
+      - beef
+      ingredientLimit:
+      - 7
+- id: tc-parallel-019
+  bfcl_id: parallel_14
+  prompt: Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10,
+    20 and 30 years.
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: calculate_present_value
+      description: Calculate the present value of a future cash flows stream.
+      parameters:
+        type: object
+        properties:
+          payment_per_year:
+            type: integer
+            description: The payment received per year.
+          interest_rate:
+            type: number
+            description: The interest rate applied per period.
+          years:
+            type: integer
+            description: The total number of years.
+        required:
+        - payment_per_year
+        - interest_rate
+        - years
+  expected_calls:
+  - calculate_present_value:
+      payment_per_year:
+      - 1000
+      interest_rate:
+      - 0.05
+      years:
+      - 20
+  - calculate_present_value:
+      payment_per_year:
+      - 1000
+      interest_rate:
+      - 0.05
+      years:
+      - 30
+  - calculate_present_value:
+      payment_per_year:
+      - 1000
+      interest_rate:
+      - 0.05
+      years:
+      - 10
+- id: tc-parallel-020
+  bfcl_id: parallel_64
+  prompt: '"Can you help me solve the following quadratic equations? The first one has coefficients a = 2, b = 5,
+    and c = 3 and I want to find all roots, real or complex. The second equation has coefficients a = 1, b = -3,
+    and c = 2 and I only want to find the real roots. The third equation has coefficients a = 4, b = -7, and c =
+    3 and I want to find all roots, real or complex. And the last equation has coefficients a = 1, b = 2, and c
+    = 1 and I only want to find the real roots."'
+  grader: tool_call
+  expect_call: true
+  tools:
+  - type: function
+    function:
+      name: solve_quadratic
+      description: Solve a quadratic equation given coefficients a, b, and c. If optional 'root_type' is 'real',
+        the function will only return real roots. If not specified, function may return complex roots.
+      parameters:
+        type: object
+        properties:
+          a:
+            type: integer
+            description: The coefficient of the squared term in the quadratic equation.
+          b:
+            type: integer
+            description: The coefficient of the linear term in the quadratic equation.
+          c:
+            type: integer
+            description: The constant term in the quadratic equation.
+          root_type:
+            type: string
+            description: 'The type of roots to return: ''real'' for real roots, ''all'' for both real and complex
+              roots. This parameter is optional. default is ''all'''
+        required:
+        - a
+        - b
+        - c
+  expected_calls:
+  - solve_quadratic:
+      a:
+      - 2
+      b:
+      - 5
+      c:
+      - 3
+      root_type:
+      - all
+      - ''
+  - solve_quadratic:
+      a:
+      - 1
+      b:
+      - -3
+      c:
+      - 2
+      root_type:
+      - real
+  - solve_quadratic:
+      a:
+      - 4
+      b:
+      - -7
+      c:
+      - 3
+      root_type:
+      - all
+      - ''
+  - solve_quadratic:
+      a:
+      - 1
+      b:
+      - 2
+      c:
+      - 1
+      root_type:
+      - real

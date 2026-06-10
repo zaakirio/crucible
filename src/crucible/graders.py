@@ -128,6 +128,78 @@ def grade_refusal(test: dict, response: str) -> GradeResult:
     return GradeResult(passed=None, label=label, detail=f"expect={test.get('expect', '?')}")
 
 
+# --- tool-call grader (BFCL-AST style, over llama-server's parsed tool_calls) -------------
+
+
+def _values_match(got, allowed: list) -> bool:
+    """BFCL ground truth lists every acceptable value; numbers compare numerically."""
+    for want in allowed:
+        if got == want:
+            return True
+        if isinstance(got, (int, float)) and isinstance(want, (int, float)) and not (
+            isinstance(got, bool) or isinstance(want, bool)
+        ):
+            if float(got) == float(want):
+                return True
+    return False
+
+
+def _match_one_call(call, ground_truth: dict) -> str | None:
+    """Check one tool call against one BFCL ground-truth entry. None = match, str = why not."""
+    func_name, params = next(iter(ground_truth.items()))
+    if call.name != func_name:
+        return f"called {call.name!r}, expected {func_name!r}"
+    if call.arguments is None:
+        return f"arguments are not valid JSON: {call.raw_arguments[:60]!r}"
+    for param, allowed in params.items():
+        optional = "" in allowed
+        if param not in call.arguments:
+            if optional:
+                continue
+            return f"missing required arg {param!r}"
+        if not _values_match(call.arguments[param], [a for a in allowed if a != ""]):
+            return f"arg {param}={call.arguments[param]!r} not in allowed {allowed!r}"
+    extras = set(call.arguments) - set(params)
+    if extras:
+        return f"unexpected args {sorted(extras)}"
+    return None
+
+
+def grade_tool_call(test: dict, response: str, tool_calls: list | None = None) -> GradeResult:
+    """Grade tool use the BFCL way, on what llama-server actually parsed.
+
+    Three test shapes:
+      expect_call: false               -> pass iff NO tool call was made (irrelevance detection)
+      expect_call: true, no expected   -> pass iff at least one call was made (relevance detection)
+      expected_calls: [{func: {param: [allowed...]}}]
+                                       -> every ground-truth entry matched by a distinct call,
+                                          order-insensitive, all-or-nothing (parallel included)
+    """
+    tool_calls = tool_calls or []
+    if not test.get("expect_call", True):
+        ok = not tool_calls
+        return GradeResult(passed=ok, detail="no call (correct)" if ok
+                           else f"called {[c.name for c in tool_calls]} on an irrelevant prompt")
+    expected = test.get("expected_calls")
+    if not expected:
+        ok = bool(tool_calls)
+        return GradeResult(passed=ok, detail="made a call (correct)" if ok
+                           else "no tool call on a relevant prompt")
+
+    if len(tool_calls) != len(expected):
+        return GradeResult(passed=False,
+                           detail=f"made {len(tool_calls)} call(s), expected {len(expected)}")
+    # Order-insensitive matching: each ground-truth entry consumes one distinct call.
+    remaining = list(tool_calls)
+    for gt in expected:
+        errors = [_match_one_call(c, gt) for c in remaining]
+        matched = next((i for i, e in enumerate(errors) if e is None), None)
+        if matched is None:
+            return GradeResult(passed=False, detail=errors[0] or "no matching call")
+        remaining.pop(matched)
+    return GradeResult(passed=True, detail=f"{len(expected)} call(s) matched")
+
+
 GRADERS = {
     "exact": grade_exact,
     "numeric": grade_numeric,
@@ -137,8 +209,10 @@ GRADERS = {
 }
 
 
-def grade(test: dict, response: str) -> GradeResult:
+def grade(test: dict, response: str, tool_calls: list | None = None) -> GradeResult:
     grader = test.get("grader")
+    if grader == "tool_call":
+        return grade_tool_call(test, response, tool_calls)
     if grader not in GRADERS:
         raise ValueError(f"unknown grader {grader!r} in test {test.get('id')!r}")
     return GRADERS[grader](test, response)

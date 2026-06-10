@@ -91,6 +91,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         repeat=args.repeat,
         ngl=args.ngl,
         ctx=args.ctx,
+        only=set(args.only.split(",")) if args.only else None,
         on_progress=progress if args.verbose else None,
     )
 
@@ -309,6 +310,8 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument("--db", default="results.db", help="SQLite path (default: results.db)")
     p_run.add_argument("--hardware", default="m4-pro-24gb", help="hardware tag recorded with the run")
     p_run.add_argument("--repeat", type=int, default=1, help="repetitions per test (noise check)")
+    p_run.add_argument("--only", default=None,
+                       help="comma-separated categories to run; trailing * = prefix (toolcall_*)")
     p_run.add_argument("--ngl", type=int, default=99)
     p_run.add_argument("--ctx", type=int, default=4096)
     p_run.add_argument("-v", "--verbose", action="store_true", help="print each test result live")
