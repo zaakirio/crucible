@@ -1,0 +1,159 @@
+# GSM8K (openai/gsm8k, test split) — grade-school math word problems.
+# Deterministic sample of 20 via scripts/seed_tests.py (seed 20260610).
+# Same dataset as arXiv 2512.13655 / 2601.14277, so deltas are paper-comparable.
+# grader: numeric (extracts the LAST number; prompt asks for it on the last line).
+- id: gsm8k-001
+  prompt: Jessica is trying to figure out how much to pay on all her debts each month. Her student loans
+    have a minimum payment of $300/month, her credit card's minimum is $200/month, and her mortgage's
+    minimum is $500/month. If Jessica wants to pay 50% more than the minimum, how much does she pay in
+    a year? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 18000
+  tolerance: 0.001
+- id: gsm8k-002
+  prompt: Zaid spends 1/4 of his salary on rent, 1/3 on car fuel and donates half of the remaining amount
+    to his favorite charity. He gives his daughter 200$ to use for her weekly expenses and 700$ to his
+    wife to budget for groceries and other household goods. If Zaid earns 6000$ per month, how much money
+    will he still have after all these expenses and donations? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 350
+  tolerance: 0.001
+- id: gsm8k-003
+  prompt: John buys twice as many red ties as blue ties.  The red ties cost 50% more than blue ties.  He
+    spent $200 on blue ties that cost $40 each. How much did he spend on ties? Give the final answer as
+    just the number on the last line.
+  grader: numeric
+  expected: 800
+  tolerance: 0.001
+- id: gsm8k-004
+  prompt: Carlos is planting a lemon tree. The tree will cost $90 to plant. Each year it will grow 7 lemons,
+    which he can sell for $1.5 each. It costs $3 a year to water and feed the tree. How many years will
+    it take before he starts earning money on the lemon tree? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 13
+  tolerance: 0.001
+- id: gsm8k-005
+  prompt: The marching band is ordering new uniforms. Each uniform comes with a hat that costs $25, a
+    jacket that costs three times as much as the hat, and pants that cost the average of the costs of
+    the hat and jacket. How much does each uniform cost total? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 150
+  tolerance: 0.001
+- id: gsm8k-006
+  prompt: Anakin and Locsin went to the beach today. Anakin caught 10 starfish, 6 sea horses, and 3 clownfish.
+    While Locsin caught 5 fewer starfish than Anakin, 3 fewer sea horses than Anakin, and 2 more clownfish
+    than Anakin. How many fish were they able to catch? Give the final answer as just the number on the
+    last line.
+  grader: numeric
+  expected: 32
+  tolerance: 0.001
+- id: gsm8k-007
+  prompt: John buys milk for 2 dollars, eggs for 3 dollars, light bulbs for 3 dollars, cups for 3 dollars,
+    and roach traps for 4 dollars.  If there is a 10% tax on all nonfood items how much did everything
+    cost. Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 16
+  tolerance: 0.001
+- id: gsm8k-008
+  prompt: A mechanic charges different rates to repair the tires of trucks and cars.  For each truck tire
+    that is repaired, the mechanic will charge $60 and for each car tire that is repaired, the mechanic
+    will charge $40.  On Thursday, the mechanic repairs 6 truck tires and 4 car tires.  On Friday, the
+    mechanic repairs 12 car tries and doesn't repair any truck tires.  How much more revenue did the mechanic
+    earn on the day with higher revenue? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 40
+  tolerance: 0.001
+- id: gsm8k-009
+  prompt: Gunter is trying to count the jelly beans in a jar. He asks his friends how many they think
+    are in the jar. One says 80. Another says 20 more than half the first one. A third says 25% more than
+    the first one. What is their average guess? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 80
+  tolerance: 0.001
+- id: gsm8k-010
+  prompt: Bailey starts with a certain amount of money. Then she receives a weekly allowance of $5 for
+    8 weeks. At the end of the 8 weeks, if she has a total of $100, how much money did Bailey start with?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 60
+  tolerance: 0.001
+- id: gsm8k-011
+  prompt: Jimmy has $2 more than twice the money Ethel has. If Ethal has $8, how much money is Jimmy having?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 18
+  tolerance: 0.001
+- id: gsm8k-012
+  prompt: Charlie has three times as many Facebook friends as Dorothy. James has four times as many friends
+    on Facebook as Dorothy. If Charlie has 12 friends on Facebook, how many Facebook friends does James
+    have? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 16
+  tolerance: 0.001
+- id: gsm8k-013
+  prompt: Candice put 80 post-it notes in her purse before she headed out to her job at the coffee shop.  On
+    her way, she stopped off at the store and purchased a package of Post-it notes;  At work, she placed
+    a single Post-it note on each of 220 different cups of coffee.  If she had 23 post-it notes remaining
+    overall, how many Post-it notes were in the package that she purchased? Give the final answer as just
+    the number on the last line.
+  grader: numeric
+  expected: 163
+  tolerance: 0.001
+- id: gsm8k-014
+  prompt: Morisette and Kael were asked to bring fruits. Morisette brought 5 apples and 8 oranges, while
+    Kael brought twice the amount of apples and half the number of oranges than Morisette. How many fruits
+    do they have in total? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 27
+  tolerance: 0.001
+- id: gsm8k-015
+  prompt: Three friends spent $20.25 on 3 tickets to the fair. They also spent $4.50 less on food than
+    on the tickets. They also went on 2 different rides which costs $33 for each ride. If they agreed
+    to split all the costs evenly, how much did each of them pay? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 34
+  tolerance: 0.001
+- id: gsm8k-016
+  prompt: Russell works at a pet store and is distributing straw among the rodents. The rats are kept
+    in 3 cages in equal groups and each rat is given 6 pieces of straw. There are 10 cages of hamsters
+    that are kept alone and each hamster is given 5 pieces of straw. There is also a pen of rabbits where
+    20 pieces of straw are distributed among the rabbits. No straw is used anywhere else in the store.
+    If 160 pieces of straw have been distributed among the small rodents, how many rats are in each cage?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 5
+  tolerance: 0.001
+- id: gsm8k-017
+  prompt: Sandra's neighbor gives her a basket of 9 eggs every time she babysits their daughter. To make
+    a Spanish flan, she needs 3 eggs. If Sandra has been tasked to make 15 Spanish flans for her school
+    fundraiser, how many times does Sandra have to babysit? Give the final answer as just the number on
+    the last line.
+  grader: numeric
+  expected: 5
+  tolerance: 0.001
+- id: gsm8k-018
+  prompt: Poppy is solving a 1000-piece jigsaw puzzle. She places a quarter of the pieces on the board,
+    then her mom places a third of the remaining pieces. How many jigsaw pieces are left to be placed?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 500
+  tolerance: 0.001
+- id: gsm8k-019
+  prompt: Jean has 30 lollipops. Jean eats 2 of the lollipops. With the remaining lollipops, Jean wants
+    to package 2 lollipops in one bag. How many bags can Jean fill? Give the final answer as just the
+    number on the last line.
+  grader: numeric
+  expected: 14
+  tolerance: 0.001
+- id: gsm8k-020
+  prompt: Jennie is helping at her mom's office. She has a pile of 60 letters needing stamps, and a pile
+    of letters already stamped. She puts stamps on one-third of the letters needing stamps. If there are
+    now 30 letters in the pile of already-stamped letters, how many were in that pile when Jennie began?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 10
+  tolerance: 0.001
