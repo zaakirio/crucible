@@ -17,7 +17,7 @@ evaluates a model exactly as it's served: same chat template (`--jinja`), same s
 tool-call parsing your published GGUFs' users get. Every run records the llama.cpp commit, because
 a score shift can be the engine, not your model.
 
-## Status - Module 01: capability & refusal evals
+## Status - Module 02: tool-calling evals (+ Module 01 complete)
 
 Tests are YAML data (`tests/`), graded deterministically (exact / numeric / regex / code-exec /
 refusal-profile), stored append-only in SQLite, compared across runs, and charted.
@@ -26,8 +26,12 @@ refusal-profile), stored append-only in SQLite, compared across runs, and charte
 cd crucible
 uv sync
 
-# seed the paper-comparable suites (GSM8K, XSTest) - deterministic, fixed seed
+# seed the paper-comparable suites (GSM8K, XSTest, ...) - deterministic, fixed seed
 uv run python scripts/seed_tests.py
+
+# seed the tool-calling suites from BFCL v4 (Apache 2.0), then run just those
+uv run python scripts/seed_tools.py
+uv run crucible run models/<model>.gguf --only 'toolcall_*'
 
 # grab a model straight from Hugging Face (any repo with GGUFs; $HF_TOKEN for gated ones)
 uv run crucible pull LiquidAI/LFM2.5-1.2B-Instruct-GGUF Q4_K_M
@@ -95,7 +99,14 @@ Q4_K_M, PPL 20.2 vs 18.1); above Q4 the differences don't clear the n=20 noise b
 | `orbench` | [OR-Bench-Hard](https://huggingface.co/datasets/bench-llm/or-bench) (ICML 2025) - over-refusal, harder than XSTest | `refusal` profile |
 | `falsereject` | [FalseReject-Test](https://huggingface.co/datasets/AmazonScience/FalseReject) (2025) - over-refusal, human-annotated | `refusal` profile |
 | `sorrybench` | [SORRY-Bench](https://huggingface.co/datasets/sorry-bench/sorry-bench-202503) (ICLR 2025) - refusal-of-unsafe, 1/category | `refusal` profile |
+| `toolcall_single/multiple/parallel` | [BFCL v4](https://github.com/ShishirPatil/gorilla/tree/main/berkeley-function-call-leaderboard) static categories (Apache 2.0) | `tool_call` (BFCL-AST style) |
+| `toolcall_irrelevance/relevance` | BFCL v4 Live - knowing when *not* to call | `tool_call` |
 | `math`, `code`, `instruction`, `refusal` | hand-written starters (Module 00) | mixed |
+
+Tool calls are evaluated end-to-end as served: llama-server's own `--jinja` template parsing
+produces the `tool_calls`, and grading checks function-name match, argument values against
+BFCL's allowed lists, and no-call behavior on irrelevant prompts. Invalid-JSON arguments are
+a recorded failure mode, not an error.
 
 Refusal categories report a **profile** (complied / hedged / refused), not pass/fail - moving
 refusals to complies is the *point* of abliteration, so Crucible reports where each model lands.
