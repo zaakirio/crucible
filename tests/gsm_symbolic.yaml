@@ -1,154 +1,764 @@
 # GSM-Symbolic (apple/GSM-Symbolic; Mirzadeh et al., ICLR 2025) - contamination-resistant
 # math: regenerated instances of GSM8K-style templates. Use these for ABSOLUTE capability
 # claims; gsm8k.yaml stays for paper-comparable deltas. One instance per original template,
-# deterministic sample of 20 via scripts/seed_tests.py (seed 20260610).
+# deterministic sample of 100 via scripts/seed_tests.py (seed 20260610).
 - id: gsmsym-001
-  prompt: Amelia walks 24 kilometers every day on her favorite walking trail, which includes 11 kilometers
-    of walking on the beach and 13 kilometers of walking on the sidewalk. On the sidewalk, Amelia walks
-    at two times the rate of speed that she does on the beach. If 44 minutes of her walk is spent on the
-    beach, how long does it take for her to complete the entire 24-kilometer walk, in minutes? Give the
-    final answer as just the number on the last line.
+  prompt: Sophia walks 34 miles every day on her favorite walking trail, which includes 17 miles of walking
+    on the beach and 17 miles of walking on the sidewalk. On the sidewalk, Sophia walks at two times the
+    rate of speed that she does on the beach. If 68 minutes of her walk is spent on the beach, how long
+    does it take for her to complete the entire 34-mile walk, in minutes? Give the final answer as just
+    the number on the last line.
   grader: numeric
-  expected: 70
+  expected: 102
   tolerance: 0.001
 - id: gsmsym-002
-  prompt: Mohammed hid 8 dozen eggs in the yard for the Easter egg hunt. Jin finds 12 eggs. Esteban finds
-    twice as many as Jin. Hiroshi finds 3 less than Esteban, and Tara finds a third as many as Hiroshi.
+  prompt: Alejandro hid 9 dozen eggs in the yard for the Easter egg hunt. James finds 9 eggs. Oliver finds
+    thrice as many as James. Benjamin finds 3 less than Oliver, and Jasmine finds 1/2 as many as Benjamin.
     How many eggs are still hidden in the yard? Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 32
+  expected: 36
   tolerance: 0.001
 - id: gsmsym-003
-  prompt: At the beginning of the conference, there were 63 nurses and 63 engineers. After 45 minutes,
-    1/2 of the total number of people left. How many engineers are left if 22 nurses stayed at the conference?
-    Give the final answer as just the number on the last line.
+  prompt: The Brown family is busy making cupcakes. So far, they've made 8375 cupcakes. They have 1451
+    peanut butter cupcakes, 1655 lemon cupcakes, and some vanilla cupcakes. How many vanilla cupcakes
+    have they made? Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 41
+  expected: 5269
   tolerance: 0.001
 - id: gsmsym-004
-  prompt: A fog bank rolls in from the ocean to cover a city. It takes 241 minutes to cover every 5 miles
-    of the city. If the city is 85 miles across from the oceanfront to the opposite inland edge, how many
+  prompt: At the beginning of the gathering, there were 72 lawyers and 51 doctors. After 45 minutes, four-sixths
+    of the total number of people left. How many doctors are left if 29 lawyers stayed at the gathering?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 12
+  tolerance: 0.001
+- id: gsmsym-005
+  prompt: A fog bank rolls in from the ocean to cover a city. It takes 234 minutes to cover every 14 miles
+    of the city. If the city is 56 miles across from the oceanfront to the opposite inland edge, how many
     minutes will it take for the fog bank to cover the whole city? Give the final answer as just the number
     on the last line.
   grader: numeric
-  expected: 4097
-  tolerance: 0.001
-- id: gsmsym-005
-  prompt: "There are currently 12 yellow balls, 19 purple balls, and 18 green balls in the store. Yellow\
-    \ balls cost \u20BA7, green balls cost \u20BA7, and purple balls cost \u20BA6. How much will the store\
-    \ have received after all the balls are sold? Give the final answer as just the number on the last\
-    \ line."
-  grader: numeric
-  expected: 324
+  expected: 936
   tolerance: 0.001
 - id: gsmsym-006
-  prompt: Mateo receives 100 emails a day. 14% of those emails don't require any response. Mateo responds
-    to the rest of them. How many emails does Mateo respond to in a 3 day work week? Give the final answer
-    as just the number on the last line.
+  prompt: "There are currently 3 pink balls, 16 orange balls, and 35 green balls in the shop. Pink balls\
+    \ cost \u20BA6, green balls cost \u20BA7, and orange balls cost \u20BA5. How much will the shop have\
+    \ received after all the balls are sold? Give the final answer as just the number on the last line."
   grader: numeric
-  expected: 258
+  expected: 343
   tolerance: 0.001
 - id: gsmsym-007
-  prompt: Amelia can peel 10 onions a minute and saute 25 onions in 9 minutes. How long will it take her
-    to peel and saute 150 onions? Give the final answer as just the number on the last line.
+  prompt: Esteban receives 100 emails a day. 20% of those emails don't require any response. Esteban responds
+    to the rest of them. How many emails does Esteban respond to in a 3 day work week? Give the final
+    answer as just the number on the last line.
   grader: numeric
-  expected: 69
+  expected: 240
   tolerance: 0.001
 - id: gsmsym-008
-  prompt: There are 120 third-graders at Oak Ridge School. 87 of them are girls. On Wednesday, 3 third-grade
-    girls and 7 third-grade boys were absent. How many third grade boys were at Oak Ridge School on Wednesday?
-    Give the final answer as just the number on the last line.
+  prompt: Winnie can peel 6 carrots a minute and saute 30 carrots in 11 minutes. How long will it take
+    her to peel and saute 180 carrots? Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 26
+  expected: 96
   tolerance: 0.001
 - id: gsmsym-009
-  prompt: It takes Amelia 29 minutes to finish a jigsaw puzzle and 5 minutes to finish a word puzzle.
-    Over the holiday she solved 3 jigsaw puzzles and 6 word puzzles. How much time did she spend playing
-    these games? Give the final answer as just the number on the last line.
+  prompt: There are 67 fifth-graders at Pine Valley School. 40 of them are girls. On Friday, 4 fifth-grade
+    girls and 4 fifth-grade boys were absent. How many fifth grade boys were at Pine Valley School on
+    Friday? Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 117
+  expected: 23
   tolerance: 0.001
 - id: gsmsym-010
-  prompt: The area of DeShawn's rectangular living room is 465 square feet. If the length of his room
-    is 5 yards, what is the perimeter of the room in feet? Give the final answer as just the number on
-    the last line.
+  prompt: It takes Sakura 28 minutes to finish a brain teaser and 4 minutes to finish a chess puzzle.
+    Over the vacation she solved 4 brain teasers and 7 chess puzzles. How much time did she spend playing
+    these games? Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 92
+  expected: 140
   tolerance: 0.001
 - id: gsmsym-011
-  prompt: The biggest waterslide at Neptunes Kingdom is 330 meters long, and people slide down at 55 meters/minute.
-    The second biggest waterslide is 240 meters long, but steeper, so people slide down at 80 meters/minute.
+  prompt: The area of Hiroshi's rectangular kitchen is 735 square meters. If the length of his room is
+    5 meters, what is the perimeter of the room in meters? Give the final answer as just the number on
+    the last line.
+  grader: numeric
+  expected: 304
+  tolerance: 0.001
+- id: gsmsym-012
+  prompt: The biggest waterslide at Neptunes Kingdom is 400 meters long, and people slide down at 40 meters/minute.
+    The second biggest waterslide is 210 meters long, but steeper, so people slide down at 70 meters/minute.
     How much longer does it take to ride the biggest slide compared to the second biggest slide? Give
     the final answer as just the number on the last line.
   grader: numeric
-  expected: 3
-  tolerance: 0.001
-- id: gsmsym-012
-  prompt: In a 140-item quiz, 10% of the questions are physics, and the rest are equally divided as history
-    and geometry questions. If Ava is sure to get 100% of the physics questions, and 1/7 of the history
-    and geometry questions correctly, how many points is she sure to get? Give the final answer as just
-    the number on the last line.
-  grader: numeric
-  expected: 32
+  expected: 7
   tolerance: 0.001
 - id: gsmsym-013
-  prompt: "Mateo has 8 \u20AC10 bills. He buys 3 action figures for \u20AC8 each. He also buys 4 packs\
-    \ of candy bars for \u20AC2 each. How much money does he have left? Give the final answer as just\
-    \ the number on the last line."
+  prompt: In a 40-item quiz, 10% of the questions are economics, and the rest are equally divided as geography
+    and history questions. If Camila is sure to get 50% of the economics questions, and 1/9 of the geography
+    and history questions correctly, how many points is she sure to get? Give the final answer as just
+    the number on the last line.
   grader: numeric
-  expected: 48
+  expected: 6
   tolerance: 0.001
 - id: gsmsym-014
-  prompt: Ali has a bag of marbles with 96 inside. He tripped over root while carrying it and dropped
-    three-sixths of them. He scrambled to search for them but only came up with 18. When he went back
-    home, he inspected the marbles further. Two of them he picked up weren't marbles, but actually beads
-    so he got rid of it. How many marbles did Ali end up with? Give the final answer as just the number
-    on the last line.
+  prompt: "To make a call from a phone booth, you must pay \u20AC0.5 for each minute of your call. After\
+    \ 22 minutes, that price drops to \u20AC0.1 per minute. How much would a 52-minute call cost? Give\
+    \ the final answer as just the number on the last line."
   grader: numeric
-  expected: 64
+  expected: 14
   tolerance: 0.001
 - id: gsmsym-015
-  prompt: A maintenance worker has to clean a university with 200 rooms. They have 10 days to get it done.
-    It takes them 15 minutes per room. If they work 10 hours each day, what percentage of their day, on
-    average, is spent cleaning rooms? Give the final answer as just the number on the last line.
+  prompt: A stack is made out of 7 orange tiles, twice as many black tiles, and an unknown number of green
+    tiles. If there are 36 tiles in the stack in total, how many green tiles are there? Give the final
+    answer as just the number on the last line.
   grader: numeric
-  expected: 50
+  expected: 15
   tolerance: 0.001
 - id: gsmsym-016
-  prompt: There are 8 periods in the day for a normal student but Mohammed has to take 3 extra classes.
-    Each class is 35 minutes long. He goes to class for 4 days a week. He then spends one-seventh of his
-    weekly minutes each on Saturday and Sunday as extra learning time. How many hours a week does he spend
-    learning? Give the final answer as just the number on the last line.
+  prompt: "Umar has 9 \u20AC20 bills. He buys 14 action figures for \u20AC9 each. He also buys 6 packs\
+    \ of candy bars for \u20AC4 each. How much money does he have left? Give the final answer as just\
+    \ the number on the last line."
   grader: numeric
-  expected: 33
+  expected: 30
   tolerance: 0.001
 - id: gsmsym-017
-  prompt: Liam and Camila have 126 minutes to walk to the mall together. It takes them 26 minutes to get
-    to the corner where the cinema is. It takes them another 54 minutes to get to the bank. How much longer
-    do they have to get to mall without being late? Give the final answer as just the number on the last
-    line.
+  prompt: There are 8 periods in the day for a normal student but Theo has to take 2 extra classes. Each
+    class is 55 minutes long. He goes to class for 5 days a week. He then spends 1/10 of his weekly minutes
+    each on Saturday and Sunday as extra learning time. How many hours a week does he spend learning?
+    Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 46
+  expected: 55
   tolerance: 0.001
 - id: gsmsym-018
-  prompt: There are 16 girls in the garden. If there are 3/4 the number of boys in the garden, how many
-    kids are in the garden? Give the final answer as just the number on the last line.
+  prompt: Thiago and Fatima have 84 minutes to walk to the cinema together. It takes them 11 minutes to
+    get to the corner where the mall is. It takes them another 43 minutes to get to the library. How much
+    longer do they have to get to cinema without being late? Give the final answer as just the number
+    on the last line.
   grader: numeric
-  expected: 28
+  expected: 30
   tolerance: 0.001
 - id: gsmsym-019
-  prompt: "Luis has \xA5104.52 and wants to buy 59 nuts from a bin at the hardware store. Each nut costs\
-    \ \xA50.28. How much money does Luis have left after paying for the nuts? Give the final answer as\
-    \ just the number on the last line."
+  prompt: There are 38 girls in the park. If there are four times the number of boys in the park, how
+    many kids are in the park? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 190
+  tolerance: 0.001
+- id: gsmsym-020
+  prompt: Zahra has $83.31 and wants to buy 47 screws from a bin at the construction supply store. Each
+    screw costs $0.73. How much money does Zahra have left after paying for the screws? Give the final
+    answer as just the number on the last line.
+  grader: numeric
+  expected: 49
+  tolerance: 0.001
+- id: gsmsym-021
+  prompt: "Oscar is selling brownie and kiwi pie for a fundraiser. On Friday, he sold 29 boxes of brownie\
+    \ and 12 fewer boxes of kiwi pie, than on Saturday. On Saturday, he sold 11 more boxes of brownies\
+    \ than on Friday and 26 boxes of kiwi pie. If the brownie cost \xA511 and the kiwi pie cost \xA527,\
+    \ how much did Oscar earn for two days? Give the final answer as just the number on the last line."
+  grader: numeric
+  expected: 1839
+  tolerance: 0.001
+- id: gsmsym-022
+  prompt: A child has 14 stickers. His friend has 3 fewer stickers than he has. How many stickers do they
+    have together? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 25
+  tolerance: 0.001
+- id: gsmsym-023
+  prompt: Mei and Ananya are sisters from Istanbul who love collecting signatures from authors. During
+    their winter break from school, the sisters spend every afternoon collecting signatures. After 5 weeks,
+    Mei and Ananya compare their autograph books, counting up the number of signatures each sister has
+    collected. Mei has 18 signatures in her book, and Ananya has 49. The sisters have 4 more weeks of
+    winter break, and they decide they want to reach 120 signatures between them by the end of the break.
+    How many signatures do the sisters need to collect to reach their goal? Give the final answer as just
+    the number on the last line.
+  grader: numeric
+  expected: 53
+  tolerance: 0.001
+- id: gsmsym-024
+  prompt: I have 17 liters of grape drink that are two-fourths water and I wish to add it to 30 liters
+    of peach drink that is 2/5 water. But as I pour it, I spill 3 liters of the grape drink. How much
+    water is in the remaining 44 liters? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 19
+  tolerance: 0.001
+- id: gsmsym-025
+  prompt: Greenville High School is holding graduation in their Convention Center this year which has
+    space for 7000 people. After accounting for 750 seats for graduates and 250 seats for faculty attending,
+    how many tickets would each graduate receive to give to their friends and family if the tickets are
+    split equally? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 8
+  tolerance: 0.001
+- id: gsmsym-026
+  prompt: Prof. Brown sold his villa for $710000. He paid the registration fees that amount to 2% of the
+    selling price and also paid a agent fee that is 5% of the selling price. If he also paid $490000 for
+    the remaining loan amount of the villa, how much is Prof. Brown's net proceeds from selling the villa?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 170300
+  tolerance: 0.001
+- id: gsmsym-027
+  prompt: When Leilani watches her cousin, she gets out a variety of toys for him. The bag of building
+    blocks has 73 blocks in it. The bin of stuffed animals has 44 stuffed animals inside. The tower of
+    stacking rings has 31 multicolored rings on it. Leilani recently bought a tube of bouncy balls, bringing
+    her total number of toys for her cousin up to 168. How many bouncy balls came in the tube? Give the
+    final answer as just the number on the last line.
+  grader: numeric
+  expected: 20
+  tolerance: 0.001
+- id: gsmsym-028
+  prompt: "The vending machines sell popcorn for 70 cents and cookies for 125 cents. Gabriel spent \xA5\
+    1200 and got 5 bags of popcorn and had 2% of his money left in change. How many cookies did he buy?\
+    \ Give the final answer as just the number on the last line."
+  grader: numeric
+  expected: 938
+  tolerance: 0.001
+- id: gsmsym-029
+  prompt: Chen went to the cafe and bought various types of treats. She bought 3 dozen danishes which
+    cost $12 per dozen, 8 dozen tarts which cost $82 per dozen, and 6 dozen scones for $113 per dozen.
+    How much was the total cost? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 1370
+  tolerance: 0.001
+- id: gsmsym-030
+  prompt: Nadia's dog has 1000 puppies, 190 of which have spots. Mateo's dog has 550 puppies, 120 of which
+    have spots. What percentage of all the puppies have spots? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 20
+  tolerance: 0.001
+- id: gsmsym-031
+  prompt: Esteban places bananas on some baskets. Each basket can hold 21 bananas. If he has 329 bananas
+    and 11 baskets, how many bananas won't he be able to place on the basket? Give the final answer as
+    just the number on the last line.
+  grader: numeric
+  expected: 98
+  tolerance: 0.001
+- id: gsmsym-032
+  prompt: "A loaf of sourdough at the cafe costs \xA57. Muffins cost \xA51 each. How much more do 4 loaves\
+    \ of sourdough cost than 5 muffins? Give the final answer as just the number on the last line."
+  grader: numeric
+  expected: 23
+  tolerance: 0.001
+- id: gsmsym-033
+  prompt: A father eats 6 pizzas per day, his wife eats 6 pizzas per day, and their daughter eats 3 pizzas
+    per day. How many pizzas does this family eat in one week? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 105
+  tolerance: 0.001
+- id: gsmsym-034
+  prompt: A bottle of lemonade is 11 ozs of lemonade. Faisal drinks 2 bottles of lemonade. If lemonade
+    has 4 calories per oz how many calories did he consume? Give the final answer as just the number on
+    the last line.
   grader: numeric
   expected: 88
   tolerance: 0.001
-- id: gsmsym-020
-  prompt: "Thiago is selling cookie and watermelon pie for a fundraiser. On Thursday, he sold 26 boxes\
-    \ of cookie and 17 fewer boxes of watermelon pie, than on Friday. On Friday, he sold 13 more boxes\
-    \ of cookies than on Thursday and 27 boxes of watermelon pie. If the cookie cost \u20AC9 and the watermelon\
-    \ pie cost \u20AC23, how much did Thiago earn for two days? Give the final answer as just the number\
+- id: gsmsym-035
+  prompt: Carlos is 14 years old. In 4 years his sister Xena will be 2 times as old as Carlos is now.
+    How old is Xena right now? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 24
+  tolerance: 0.001
+- id: gsmsym-036
+  prompt: Valeria has four times as many Twitter friends as Leon. Beatriz has thrice as many friends on
+    Twitter as Leon. If Valeria has 104 friends on Twitter, how many Twitter friends does Beatriz have?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 78
+  tolerance: 0.001
+- id: gsmsym-037
+  prompt: "Isabella buys 17 shares of a stock for \u20A325 each. The stock price increases 60% the first\
+    \ year Isabella holds it, then decreases 25% in the second year. What is the final value of all Isabella's\
+    \ shares? Give the final answer as just the number on the last line."
+  grader: numeric
+  expected: 510
+  tolerance: 0.001
+- id: gsmsym-038
+  prompt: On Tuesday, Gabriel wants to exercise for two times the amount of time he did on Monday and
+    Sunday combined. On Sunday he exercised for 58 minutes. On Monday he exercised for 40 minutes. How
+    many minutes does he have to exercise on Tuesday to reach his goal? Give the final answer as just
+    the number on the last line.
+  grader: numeric
+  expected: 196
+  tolerance: 0.001
+- id: gsmsym-039
+  prompt: Luca slew 100 trolls with his mighty battle axe, while Tariq, using a javelin, slew 4/5 as many
+    trolls as Luca. Using a stone hammer, Ali slew six times as many trolls as Tariq. But Arjun, having
+    forgotten his mace at home, slew four-sixths as many trolls as Ali using a wooden spoon. How many
+    trolls has Arjun slain? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 320
+  tolerance: 0.001
+- id: gsmsym-040
+  prompt: Umar has 6 tubes of blue paint and 2 tubes of white paint. Diego has 2/3 as many tubes of blue
+    paint as Umar, and three times as many tubes of white paint as Umar. How many tubes of paint does
+    Diego have? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 10
+  tolerance: 0.001
+- id: gsmsym-041
+  prompt: At Benjamin's house, there are four times as many figs as apples. He has a total of 52 apples
+    in his house. Benjamin bought 63 more apples at the store and 15 fewer figs than the number of apples.
+    Find the combined total of the number of figs and apples Benjamin has in the house? Give the final
+    answer as just the number on the last line.
+  grader: numeric
+  expected: 371
+  tolerance: 0.001
+- id: gsmsym-042
+  prompt: Comet Halley orbits the sun every 65 years. James's dad saw the Comet when he was 32 years old.
+    James saw the comet a second time when he was three times the age his dad was when he saw the Comet.
+    How old was James when he saw the Comet for the first time? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 31
+  tolerance: 0.001
+- id: gsmsym-043
+  prompt: "Tara's aunt said that she had \u20A3190 budgeted for her birthday party. She wants to make\
+    \ sure she and her friends all get to play one round of bowling, have \u20A33 in game room tokens,\
+    \ and get to ride the bumper cars eight times. A round of bowling is \u20A34. The bumper cars cost\
+    \ \u20A311 a ride. How many friends can she invite? Give the final answer as just the number on the\
+    \ last line."
+  grader: numeric
+  expected: 1
+  tolerance: 0.001
+- id: gsmsym-044
+  prompt: "Santiago hires a limousine from 4 PM to 11 PM. He gets 2 hours free. The first paid hour is\
+    \ \u20BA16 and each hour after that is twice the cost. How much did he pay? Give the final answer\
+    \ as just the number on the last line."
+  grader: numeric
+  expected: 144
+  tolerance: 0.001
+- id: gsmsym-045
+  prompt: "Umar collects garbage from 3 different apartment complexes. The first 2 have 450 apartments\
+    \ each and the last one is 20% bigger than the other 2 combined. Umar collects garbage 2 times a week\
+    \ from each place and he gets paid \u20A30.45 per collection for each apartment. How much money does\
+    \ he make in a week? Give the final answer as just the number on the last line."
+  grader: numeric
+  expected: 1782
+  tolerance: 0.001
+- id: gsmsym-046
+  prompt: Olivia was preparing for a potluck party at her house, where she intended to serve creme brulee.
+    She noticed that she was out of plastic spoons, so she bought a new package of spoons. Later, her
+    husband also bought a package of 19 new spoons and gave them to Olivia. While Olivia was making the
+    creme brulee, she used five of the spoons to sample her creme brulee. Later, when she went to set
+    the table, she had a total of 25 spoons. How many spoons were in the package that Olivia bought? Give
+    the final answer as just the number on the last line.
+  grader: numeric
+  expected: 11
+  tolerance: 0.001
+- id: gsmsym-047
+  prompt: Bodhi scored 234 points in one game of darts. Umar scored 26 points more than one-third as many
+    as Bodhi. How many points did Bodhi and Umar have in total? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 338
+  tolerance: 0.001
+- id: gsmsym-048
+  prompt: Nia finished two-fourths of a 434 piece puzzle, and then started and finished another 392 piece
+    puzzle within an hour. How many puzzle pieces did Nia place during that hour? Give the final answer
+    as just the number on the last line.
+  grader: numeric
+  expected: 609
+  tolerance: 0.001
+- id: gsmsym-049
+  prompt: Nia has 12 jars of icing in her kitchen cabinet. Each jar of icing can decorate 12 brownies.
+    Nia wants to bake enough brownies to use up all of her icing. If each baking sheet holds 8 brownies,
+    how many baking sheets worth of brownies should she bake? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 18
+  tolerance: 0.001
+- id: gsmsym-050
+  prompt: Luca wants to make different sized ice cubes with 342 grams of water. He can make giant cubes
+    that use 12 grams per cube, medium cubes that use 11 grams, and small cubes that use 3/5 of gram.
+    If he makes 9 giant cubes, 15 small cubes, and 15 medium cubes, how many grams of water does he have
+    left? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 60
+  tolerance: 0.001
+- id: gsmsym-051
+  prompt: Faisal has 66 light magenta spools of thread, 129 dark magenta spools of thread, 31 light teal
+    spools of thread, and 74 dark teal spools of thread. What percent of the spools are magenta? Give
+    the final answer as just the number on the last line.
+  grader: numeric
+  expected: 65
+  tolerance: 0.001
+- id: gsmsym-052
+  prompt: Tara can run three times faster than she can walk, but she can skip at a rate of speed that
+    is two-fourths as fast as she can run. If she can skip at 3 miles per hour, how many miles can she
+    travel in 6 hours if she spends 1/3 of the time running and 2/3 of the time walking? Give the final
+    answer as just the number on the last line.
+  grader: numeric
+  expected: 20
+  tolerance: 0.001
+- id: gsmsym-053
+  prompt: Santiago watches TV after he finishes his homework every night. On Saturday and Sunday, he watched
+    a 5-hour episode of his favorite show each night. On Monday, he watched a few episodes of a 15-minute
+    show. On Tuesday, he finished homework early and watched a 3-hour episode and a 30-minute show. On
+    Wednesday, he got to stay up late, so he watched four 2-hour episodes. If he watched 22 hours of TV
+    in all, how many 15-minute episodes did he watch on Monday? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 2
+  tolerance: 0.001
+- id: gsmsym-054
+  prompt: Tariq has a bag of beads with 20 inside. He tripped over toy while carrying it and dropped three-fourths
+    of them. He scrambled to search for them but only came up with 10. When he went back home, he inspected
+    the beads further. Five of them he picked up weren't beads, but actually pebbles so he got rid of
+    it. How many beads did Tariq end up with? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 10
+  tolerance: 0.001
+- id: gsmsym-055
+  prompt: "A carpenter works for 4 weeks every month and for 4 days every week. If he gets paid \xA5185\
+    \ every day, how much does he earn if he works for a year? Give the final answer as just the number\
     \ on the last line."
   grader: numeric
-  expected: 1436
+  expected: 35520
+  tolerance: 0.001
+- id: gsmsym-056
+  prompt: Mateo picks 85 oranges on Monday. Then he picks 186 oranges on Tuesday. On Wednesday, he picks
+    triple the number of oranges he did on Monday. How many oranges does Mateo have? Give the final answer
+    as just the number on the last line.
+  grader: numeric
+  expected: 526
+  tolerance: 0.001
+- id: gsmsym-057
+  prompt: A class of 155 students has various hobbies. 17 like to play video games, 13 like to play cricket,
+    and the rest like to either hike or play music. How many like to hike if the number that like to play
+    music is twice the number that prefer playing cricket? Give the final answer as just the number on
+    the last line.
+  grader: numeric
+  expected: 99
+  tolerance: 0.001
+- id: gsmsym-058
+  prompt: "Mohammed goes to the store to buy some rice. The normal brand of rice he buys costs \u20AC\
+    12 per kg. He had to buy a more expensive brand that costs 25% more since his favorite brand was sold\
+    \ out. He decides to buy a week's worth of rice and he uses 1 kg of rice per day. He also decided\
+    \ to buy himself a muffin for \u20AC3. How much did everything cost? Give the final answer as just\
+    \ the number on the last line."
+  grader: numeric
+  expected: 108
+  tolerance: 0.001
+- id: gsmsym-059
+  prompt: Amelia is popping popcorn for a snack. As the pan of kernels heats up, the kernels start popping
+    faster. 80 pop in the first 18 seconds of cooking, then 4 times that amount in the next 18 seconds.
+    The kernels increase to 6 times the initial popping rate in the next 18 seconds, but in the final
+    18 seconds, the popping slows down to half the rate as the past 18 seconds. After Amelia takes the
+    pan off the heat, a quarter of the number of kernels that popped in the final 18 seconds of cooking
+    also pop from the residual heat. How many pieces of popcorn does Amelia have to eat? Give the final
+    answer as just the number on the last line.
+  grader: numeric
+  expected: 1180
+  tolerance: 0.001
+- id: gsmsym-060
+  prompt: If Rania and Yara have 820 feet of fence between them, and they agree to split it with Yara
+    getting 170 feet more than Rania, how much is left over for Rania? Give the final answer as just the
+    number on the last line.
+  grader: numeric
+  expected: 325
+  tolerance: 0.001
+- id: gsmsym-061
+  prompt: Andre is rolling a 20-sided die. How much more likely is it (expressed as a percentage) that
+    he rolls a number greater than 4 than that he rolls two odd numbers in a row? Give the final answer
+    as just the number on the last line.
+  grader: numeric
+  expected: 55
+  tolerance: 0.001
+- id: gsmsym-062
+  prompt: Jin caught 5 salmons last Thursday, the first salmon he caught weighs 79 kgs, the second salmon
+    he caught weighs 53 kgs, and the last salmon he caught weighs 38 kgs. If a kg of salmon costs $1.0,
+    how much will he earn after selling all the salmons to the market? Give the final answer as just the
+    number on the last line.
+  grader: numeric
+  expected: 246
+  tolerance: 0.001
+- id: gsmsym-063
+  prompt: Gabriel's van breaks down. The van weighs 1150 kilograms and he has groceries in it weighing
+    450 kilograms. He also has his 4 young friends who weigh 95 kilograms each in it. If the force to
+    move the van is 5% of the weight, how much force does he need to push the van? Give the final answer
+    as just the number on the last line.
+  grader: numeric
+  expected: 99
+  tolerance: 0.001
+- id: gsmsym-064
+  prompt: Umar is feeding his livestock silage. Each duck needs 14 kg, and each llama needs 8 kg less
+    than twice the amount each duck needs. If there are 10 ducks and 46 llamas, how many kg of silage
+    does Umar need? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 1060
+  tolerance: 0.001
+- id: gsmsym-065
+  prompt: "Uma went to the coast for vacation. Her parents gave her \u20A31300 to buy whatever she wanted.\
+    \ At the seaside store, cotton candy was on sale for \"Buy 15 kgs at \u20A321 per kg, get 5 kgs 2/3\
+    \ off.\" She scooped up 22 kgs. She also bought a mixed bag of coral pieces for \u20A311.75 and 17\
+    \ pins that were \u20A321.25 each. How much money does Uma have left? Give the final answer as just\
+    \ the number on the last line."
+  grader: numeric
+  expected: 535
+  tolerance: 0.001
+- id: gsmsym-066
+  prompt: "Uma qualified for a spot on the cycling team, so she went shopping for some athletic gear.\
+    \ She bought a sports bra for \u20AC16, a pair of cycling sweatpants for \u20AC7 more than the sports\
+    \ bra cost, and a pair of athletic shoes that were originally \u20AC78 but were on sale for one-third\
+    \ price. She had a coupon for \u20AC2 off the package of \u20AC13 athletic wristbands that she also\
+    \ bought. How much did she spend on athletic gear? Give the final answer as just the number on the\
+    \ last line."
+  grader: numeric
+  expected: 76
+  tolerance: 0.001
+- id: gsmsym-067
+  prompt: Xavier has 85 square yards of grape field. There are 34 grapes per square yard. Xavier can harvest
+    his grapes every 2 months. How many grapes can Xavier harvest within a year? Give the final answer
+    as just the number on the last line.
+  grader: numeric
+  expected: 17340
+  tolerance: 0.001
+- id: gsmsym-068
+  prompt: "Xavier has a flower stand at the community market. He sells three kinds of flowers: roses,\
+    \ daisies and sunflowers. He usually sells roses for \u20BA1.26 per basket, daisies for \u20BA3.57\
+    \ per basket and sunflowers for \u20BA6.09 per basket. Xavier has no change today, so he has decided\
+    \ to round all his prices to the nearest dollar. If Xavier sells 13 baskets of roses, 30 baskets of\
+    \ daisies and 36 baskets of sunflowers, how much will he make? Give the final answer as just the number\
+    \ on the last line."
+  grader: numeric
+  expected: 349
+  tolerance: 0.001
+- id: gsmsym-069
+  prompt: A janitor has to clean a office building with 90 rooms. They have 10 days to get it done. It
+    takes them 30 minutes per room. If they work 9 hours each day, what percentage of their day, on average,
+    is spent cleaning rooms? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 50
+  tolerance: 0.001
+- id: gsmsym-070
+  prompt: Bodhi went to their orchard to pick some strawberries and found 3/5 as many caterpillars as
+    grasshoppers in the garden. If there were 25 grasshoppers, calculate the total number of insects in
+    the garden. Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 40
+  tolerance: 0.001
+- id: gsmsym-071
+  prompt: A lasagna has 30 pieces. If Nadia can eat 5 pieces a day while Leon can eat five times as much,
+    how many days will the lasagna last? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 1
+  tolerance: 0.001
+- id: gsmsym-072
+  prompt: If Jin eats 2 eggs a day for 33 days and then increases it to 6 eggs a day for 91 days, how
+    many dozens of eggs will Jin need for 124 days? Give the final answer as just the number on the last
+    line.
+  grader: numeric
+  expected: 51
+  tolerance: 0.001
+- id: gsmsym-073
+  prompt: Keisha has a flower bed that is 162 feet long. Keisha wants to fill her flower bed with plants.
+    Keisha's flowers grow 5 feet wide so she needs to leave 13.5 feet between every plant. Keisha already
+    owns 11 flowers. Each flowering plant costs $12 at the store, how much money will Keisha spend at
+    the store to fill up her flower bed? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 12
+  tolerance: 0.001
+- id: gsmsym-074
+  prompt: One miner can mine 5 pounds of ore per day with basic shovel. He can mine twice as much with
+    a bronze pickaxe and 40% more with a steel pickaxe than with a bronze pickaxe. How many pounds of
+    ore can 21 miners with steel pickaxes mine in a month with 29 days? Give the final answer as just
+    the number on the last line.
+  grader: numeric
+  expected: 8526
+  tolerance: 0.001
+- id: gsmsym-075
+  prompt: Amelia is knitting winter wear for her 2 grandchildren. They're twins, so they're all the same
+    size. She wants to make a vest, shawl, beanie, socks, and leg warmers for each of them. It takes 17
+    skeins of wool to make a vest, 11 for a shawl, 18 for a beanie, 12 for a pair of socks, and 6 for
+    a pair of leg warmers. How many skeins of wool will she need to buy? Give the final answer as just
+    the number on the last line.
+  grader: numeric
+  expected: 128
+  tolerance: 0.001
+- id: gsmsym-076
+  prompt: Olga sliced a whole peach into 27 pieces. She ate 3 slices, her cousin ate 7 more than her,
+    and her sister ate 4 more than her cousin. How many slices of peach did they all eat? Give the final
+    answer as just the number on the last line.
+  grader: numeric
+  expected: 27
+  tolerance: 0.001
+- id: gsmsym-077
+  prompt: When the water is cold Valeria swims a mile in 14 minutes. When the water is warm Valeria swims
+    a mile in 3 minutes more than twice as long. How much longer does Valeria take to swim 2 miles on
+    a hot day than a cold day? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 34
+  tolerance: 0.001
+- id: gsmsym-078
+  prompt: In a set of chef's cards, there are 40 orange cards, and 45% more red cards. Blue cards are
+    as many as the sum of orange and red cards. How many cards of all mentioned colors are there? Give
+    the final answer as just the number on the last line.
+  grader: numeric
+  expected: 196
+  tolerance: 0.001
+- id: gsmsym-079
+  prompt: Zahra and Viktor are currently 24 years apart in age. If Zahra, who is younger than Viktor,
+    is 33 years old, what's the average of their ages? Give the final answer as just the number on the
+    last line.
+  grader: numeric
+  expected: 45
+  tolerance: 0.001
+- id: gsmsym-080
+  prompt: Benjamin is raising money for a field trip. He has applied for help from the school, which has
+    decided to cover 1/5 of the cost of the field trip. How much money is Benjamin missing if he has $60
+    and the field trip costs $260? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 148
+  tolerance: 0.001
+- id: gsmsym-081
+  prompt: Leilani makes coffee using teaspoons of sugar and cups of water in the ratio of 112:43. If she
+    used a total of 1240 teaspoons of sugar and cups of water, calculate the number of teaspoonfuls of
+    sugar she used. Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 896
+  tolerance: 0.001
+- id: gsmsym-082
+  prompt: A farmer is buying feed for his cows. He buys a variety of wheats, oats, carrots and hay. Since
+    hay are a rare treat, he only buys seven 4-kg boxes of them for the whole stable. He only wants enough
+    carrots to feed the cows while the vegetables are fresh, so he buys fourteen 9-kg bags. Wheats are
+    the main diet of his cows, so he buys thirty four 40-kg packs. Oats are a staple to supplement the
+    wheats, so he buys eighteen 17-kg sacks. If his farm truck can carry 130 kgs at a time, how many trips
+    does the farmer need to transport all the feed? Give the final answer as just the number on the last
+    line.
+  grader: numeric
+  expected: 14
+  tolerance: 0.001
+- id: gsmsym-083
+  prompt: Mrs. Lee is looking for a townhouse that will not go beyond her $460000 budget. She saw a property
+    that has a selling price of $440000. On top of that, the buyer has to pay a brokerage fee which is
+    4% of the selling price, and also the transfer fee that is 11% of the selling price. How much more
+    is the total price of the townhouse than Mrs. Lee's budget? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 46000
+  tolerance: 0.001
+- id: gsmsym-084
+  prompt: Mohammed was a pen pal with 12 people. He stopped being penpals with 4 of them. They each send
+    3 letters a week that are 10 pages long. He responds in kind. He can write a page every 4 minutes.
+    How many hours does he spend writing a week? Give the final answer as just the number on the last
+    line.
+  grader: numeric
+  expected: 16
+  tolerance: 0.001
+- id: gsmsym-085
+  prompt: A new parasite infects 16 people. Every day, each infected person infects 7 others. How many
+    people are infected after 3 days? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 8192
+  tolerance: 0.001
+- id: gsmsym-086
+  prompt: A juggler can juggle 660 balls. A quarter of the balls are tennis balls, and a fifth of the
+    tennis balls are yellow. How many yellow tennis balls are there? Give the final answer as just the
+    number on the last line.
+  grader: numeric
+  expected: 33
+  tolerance: 0.001
+- id: gsmsym-087
+  prompt: The Charity fundraiser team hid 100 goodies. The Williams twins each found 17 goodies. All the
+    other goodies except 20 were found by their friends. How many goodies did the friends find? Give the
+    final answer as just the number on the last line.
+  grader: numeric
+  expected: 46
+  tolerance: 0.001
+- id: gsmsym-088
+  prompt: Mia is learning to write and decides to keep re-writing the alphabet until she knows it. She
+    writes it in full ten times, writes three-sixths of it once, then re-writes everything she has already
+    written. How many letters has Mia written in total? Give the final answer as just the number on the
+    last line.
+  grader: numeric
+  expected: 546
+  tolerance: 0.001
+- id: gsmsym-089
+  prompt: According to its nutritional info, a bag of cookies has 250 calories per serving. If a 150 oz
+    bag has 5 servings, how many oz can you eat if your daily calorie target is 2000 and you have already
+    consumed 1750 calories? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 30
+  tolerance: 0.001
+- id: gsmsym-090
+  prompt: There are 18 students playing table tennis and six times that number playing volleyball. There
+    are 14 boys and 27 girls playing badminton. If each student only participates in one group, how many
+    students are there in total? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 167
+  tolerance: 0.001
+- id: gsmsym-091
+  prompt: "Qasim works a 9-hour shift each day, 6 days a week. He earns \u20BA21 per hour and gets a \u20BA\
+    419 bonus each week if the company performs well. How much money did Qasim make in February if the\
+    \ company performed very well for the whole month? Give the final answer as just the number on the\
+    \ last line."
+  grader: numeric
+  expected: 6212
+  tolerance: 0.001
+- id: gsmsym-092
+  prompt: 400 people apply for a job at Facebook. Of the people that apply, only 20% receive interviews.
+    Of those who receive interviews, 10% receive a job offer. Of those who receive a job offer, three-fourths
+    of the people accept the position. How many people accept the position? Give the final answer as just
+    the number on the last line.
+  grader: numeric
+  expected: 6
+  tolerance: 0.001
+- id: gsmsym-093
+  prompt: "Valentina is trying to decide whether to do her business accounting herself or hire one financial\
+    \ advisor. If she does it herself, she'll be able to do 7 fewer hours of consulting work, losing \u20AC\
+    57/hour in missed income. The financial advisor charges \u20AC195. How much more money will she have\
+    \ if she hires the financial advisor? Give the final answer as just the number on the last line."
+  grader: numeric
+  expected: 204
+  tolerance: 0.001
+- id: gsmsym-094
+  prompt: Nadia is required to submit a 192-page essay. She already finished writing 1/8 of the essay.
+    How many pages does she have left to write? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 168
+  tolerance: 0.001
+- id: gsmsym-095
+  prompt: "Liam went to buy some school supplies. He bought 24 folders which cost \u20AC9.75 each, 12\
+    \ crayons which cost \u20AC14.75 each, and a rim of bond paper which cost \u20AC14. How much did Liam\
+    \ spend on everything? Give the final answer as just the number on the last line."
+  grader: numeric
+  expected: 425
+  tolerance: 0.001
+- id: gsmsym-096
+  prompt: Mia operates the cash register exactly two times as fast as her less-experienced colleague Haruka.
+    Daily, Haruka processes 63 customers. What is the total weekly production for the two if they work
+    all days of the week? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 1323
+  tolerance: 0.001
+- id: gsmsym-097
+  prompt: In Mrs. Garcia's class of 100 students, 16% of the class are swimmers. Out of the remaining
+    class, 25% of the students are debate team members or part of choir members. These 3 groups of students
+    will need to leave early today to travel to an away meet. How many students are leaving early? Give
+    the final answer as just the number on the last line.
+  grader: numeric
+  expected: 37
+  tolerance: 0.001
+- id: gsmsym-098
+  prompt: Gabrielle is an avid gardener. Two days ago, she received 44 new potted plants from her favorite
+    plant nursery. She already has 10 potted plants on each of the 55 window ledges of her large country
+    home. Feeling generous, she has decided that she will give 7 potted plants from each ledge to friends
+    and family tomorrow. How many potted plants will Gabrielle remain with? Give the final answer as just
+    the number on the last line.
+  grader: numeric
+  expected: 209
+  tolerance: 0.001
+- id: gsmsym-099
+  prompt: A medical center has a capacity of 1600 wards with 1/10 occupied. Due to the major accident,
+    35 patients are admitted into the medical center each day. Calculate the total number of unoccupied
+    wards in the medical center after 4 weeks. Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 460
+  tolerance: 0.001
+- id: gsmsym-100
+  prompt: Emma saw a 360-foot dolphin with 6 72-inch remoras attached to it. What percentage of the dolphin's
+    body length is the combined length of the remoras? Give the final answer as just the number on the
+    last line.
+  grader: numeric
+  expected: 10
   tolerance: 0.001

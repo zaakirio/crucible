@@ -68,7 +68,7 @@ are still there from Module 00.
 | category | base [Q4_K_M] | abliterated [Q4_K_M] | Δ |
 |---|---|---|---|
 | gsm8k | 15/20 | 15/20 | +0pp |
-| gsm_symbolic | 15/20 | 13/20 | −10pp (below n=20 noise bar) |
+| gsm_symbolic (n=100) | 54/100 | 49/100 | -5pp (within noise; gap shrank as n grew) |
 | code | 5/6 | 5/6 | +0pp |
 | instruction | 7/7 | 7/7 | +0pp |
 | WikiText-2 PPL | 18.147 | 18.145 | ~0 |
