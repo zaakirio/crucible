@@ -12,11 +12,12 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import httpx
 import yaml
 
 from . import db
 from .client import chat
-from .graders import grade
+from .graders import GradeResult, grade
 from .server import llama_cpp_commit, llama_server
 
 _QUANT_RE = re.compile(
@@ -101,11 +102,32 @@ def run_suite(
         for category, test in tests:
             for rep in range(repeat):
                 t0 = time.perf_counter()
-                res = chat(
-                    srv.base_url,
-                    [{"role": "user", "content": test["prompt"]}],
-                    tools=test.get("tools"),
-                )
+                try:
+                    res = chat(
+                        srv.base_url,
+                        [{"role": "user", "content": test["prompt"]}],
+                        tools=test.get("tools"),
+                    )
+                except httpx.HTTPStatusError as e:
+                    # The server answered but errored (e.g. its tool-call parser choked on
+                    # the model's output). That's a finding about this model/quant, not a
+                    # harness crash: record it as a failure and keep going.
+                    latency_ms = int((time.perf_counter() - t0) * 1000)
+                    body = e.response.text[:200]
+                    g = grade_error = GradeResult(
+                        passed=None if test.get("grader") == "refusal" else False,
+                        detail=f"server returned {e.response.status_code}: {body[:120]}",
+                    )
+                    db.insert_result(
+                        conn, run_id=run_id, test_id=test["id"], category=category, rep=rep,
+                        response=f"<server error {e.response.status_code}> {body}",
+                        passed=None if grade_error.passed is None else int(grade_error.passed),
+                        label=None, detail=grade_error.detail, latency_ms=latency_ms,
+                        tok_per_sec=None, prompt_tokens=None, completion_tokens=None,
+                    )
+                    if on_progress:
+                        on_progress(category, test, rep, g)
+                    continue
                 latency_ms = int((time.perf_counter() - t0) * 1000)
                 g = grade(test, res.text, res.tool_calls)
                 stored = res.text

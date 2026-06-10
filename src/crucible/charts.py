@@ -1,12 +1,18 @@
 """Charts - render the findings from results.db as PNGs.
 
-The table is the product; these are the table's visual form. Four charts, each answering
+The table is the product; these are the table's visual form. Six charts, each answering
 one question someone running local models actually asks:
 
   quant_curve      - where does quality fall off as you quantize?  (pass-rate vs quant)
+  toolcall_curve   - does tool calling survive quantization?       (per toolcall category)
   ablit_delta      - what did abliteration cost?                   (base vs abliterated bars)
   refusal_profile  - did abliteration actually work?               (complied/hedged/refused)
   pareto           - which quant is the knee?                      (pass-rate vs tok/s vs size)
+  ppl_curve        - the intrinsic metric                          (perplexity vs quant)
+
+Stats are merged at the CATEGORY level: for each (model, quant, lineage, category) the
+newest run containing that category wins. Partial runs (e.g. `run --only toolcall_*`)
+update their categories without shadowing a full run's other categories.
 
 Every chart degrades gracefully: if the runs it needs aren't in the DB yet, it's skipped
 with a reason instead of failing the command.
@@ -15,6 +21,7 @@ with a reason instead of failing the command.
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import matplotlib
@@ -28,9 +35,6 @@ QUANT_ORDER = [
     "Q5_K_S", "Q5_K_M", "Q6_K", "Q8_0", "F16", "BF16", "F32",
 ]
 
-# Categories graded pass/fail (refusal categories report labels instead).
-_CAPABILITY_SQL = "passed IS NOT NULL"
-
 _FIG_KW = {"dpi": 150, "bbox_inches": "tight"}
 
 
@@ -41,94 +45,130 @@ def quant_rank(quant: str | None) -> int:
         return len(QUANT_ORDER)
 
 
-def latest_runs(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    """Newest run per (model_name, quant, lineage) - reruns supersede, never average."""
-    return conn.execute(
-        """
-        SELECT * FROM runs WHERE id IN (
-          SELECT MAX(id) FROM runs GROUP BY model_name, quant, lineage
-        ) ORDER BY id
-        """
-    ).fetchall()
+@dataclass
+class CatStats:
+    rate: float | None = None      # pass rate, None for label-graded categories
+    tps: float | None = None
+    labels: dict = field(default_factory=dict)  # complied/hedged/refused counts
 
 
-def _category_rates(conn: sqlite3.Connection, run_id: int) -> dict[str, float]:
-    """category -> pass rate (capability categories only), averaged over reps."""
-    rows = conn.execute(
-        f"""
-        SELECT category,
-               AVG(CASE WHEN passed = 1 THEN 1.0 ELSE 0.0 END) AS rate
-        FROM results WHERE run_id = ? AND {_CAPABILITY_SQL}
-        GROUP BY category
-        """,
-        (run_id,),
-    ).fetchall()
-    return {r["category"]: r["rate"] for r in rows}
+@dataclass
+class GroupStats:
+    """All known results for one (model_name, quant, lineage), newest-run-per-category."""
+    model_name: str
+    quant: str | None
+    lineage: str
+    categories: dict[str, CatStats] = field(default_factory=dict)
+    ppl: float | None = None
+    ppl_chunks: int | None = None
+    model_size_bytes: int | None = None
+
+    def capability_rate(self) -> float | None:
+        rates = [c.rate for c in self.categories.values() if c.rate is not None]
+        return sum(rates) / len(rates) if rates else None
+
+    def avg_tps(self) -> float | None:
+        tps = [c.tps for c in self.categories.values() if c.tps]
+        return sum(tps) / len(tps) if tps else None
+
+    def label_counts(self) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for c in self.categories.values():
+            for k, v in c.labels.items():
+                out[k] = out.get(k, 0) + v
+        return out
 
 
-def _refusal_counts(conn: sqlite3.Connection, run_id: int) -> dict[str, int]:
-    rows = conn.execute(
-        """
-        SELECT label, COUNT(*) AS n FROM results
-        WHERE run_id = ? AND label IS NOT NULL GROUP BY label
-        """,
-        (run_id,),
-    ).fetchall()
-    return {r["label"]: r["n"] for r in rows}
+def merged_stats(conn: sqlite3.Connection) -> dict[tuple, GroupStats]:
+    """(model_name, quant, lineage) -> GroupStats, newest run winning per category."""
+    groups: dict[tuple, GroupStats] = {}
+    for run in conn.execute("SELECT * FROM runs ORDER BY id").fetchall():
+        key = (run["model_name"], run["quant"], run["lineage"])
+        g = groups.setdefault(key, GroupStats(run["model_name"], run["quant"], run["lineage"]))
+        if run["model_size_bytes"]:
+            g.model_size_bytes = run["model_size_bytes"]
+        if run["ppl"] is not None:
+            g.ppl, g.ppl_chunks = run["ppl"], run["ppl_chunks"]
+        rows = conn.execute(
+            """
+            SELECT category,
+                   AVG(CASE WHEN passed = 1 THEN 1.0 ELSE 0.0 END) AS rate,
+                   SUM(CASE WHEN passed IS NOT NULL THEN 1 ELSE 0 END) AS n_graded,
+                   AVG(tok_per_sec) AS tps,
+                   SUM(CASE WHEN label = 'complied' THEN 1 ELSE 0 END) AS complied,
+                   SUM(CASE WHEN label = 'hedged'   THEN 1 ELSE 0 END) AS hedged,
+                   SUM(CASE WHEN label = 'refused'  THEN 1 ELSE 0 END) AS refused
+            FROM results WHERE run_id = ? GROUP BY category
+            """,
+            (run["id"],),
+        ).fetchall()
+        for r in rows:  # this run is newer than anything stored: overwrite its categories
+            labels = {k: r[k] for k in ("complied", "hedged", "refused") if r[k]}
+            g.categories[r["category"]] = CatStats(
+                rate=r["rate"] if r["n_graded"] else None, tps=r["tps"], labels=labels)
+    return groups
 
 
-def _overall(conn: sqlite3.Connection, run_id: int) -> tuple[float | None, float | None]:
-    """(overall capability pass-rate, avg generation tok/s) for a run."""
-    row = conn.execute(
-        f"""
-        SELECT AVG(CASE WHEN passed = 1 THEN 1.0 ELSE 0.0 END) AS rate,
-               AVG(tok_per_sec) AS tps
-        FROM results WHERE run_id = ? AND {_CAPABILITY_SQL}
-        """,
-        (run_id,),
-    ).fetchone()
-    return row["rate"], row["tps"]
-
-
-def _sweep_runs(runs: list[sqlite3.Row]) -> list[sqlite3.Row]:
-    """The (model_name, lineage) group with the most distinct quants = the sweep."""
-    groups: dict[tuple, list] = {}
-    for r in runs:
-        if r["quant"]:
-            groups.setdefault((r["model_name"], r["lineage"]), []).append(r)
-    if not groups:
+def _sweep(groups: dict[tuple, GroupStats]) -> list[GroupStats]:
+    """The (model_name, lineage) family with the most distinct quants = the sweep."""
+    fams: dict[tuple, list[GroupStats]] = {}
+    for (model, quant, lineage), g in groups.items():
+        if quant:
+            fams.setdefault((model, lineage), []).append(g)
+    if not fams:
         return []
-    best = max(groups.values(), key=lambda g: len({r["quant"] for r in g}))
-    return sorted(best, key=lambda r: quant_rank(r["quant"]))
+    best = max(fams.values(), key=lambda f: len({g.quant for g in f}))
+    return sorted(best, key=lambda g: quant_rank(g.quant))
 
 
-def chart_quant_curve(conn, out_dir: Path) -> Path | str:
-    sweep = _sweep_runs(latest_runs(conn))
-    if len(sweep) < 3:
-        return "needs >=3 quants of one model (run the sweep)"
-    quants = [r["quant"] for r in sweep]
-    categories = sorted({c for r in sweep for c in _category_rates(conn, r["id"])})
-
+def _curve(sweep: list[GroupStats], categories: list[str], title: str, path: Path) -> Path:
     fig, ax = plt.subplots(figsize=(8, 5))
+    quants = [g.quant for g in sweep]
     for cat in categories:
-        ys = [_category_rates(conn, r["id"]).get(cat) for r in sweep]
-        ax.plot(quants, [y * 100 if y is not None else None for y in ys],
-                marker="o", label=cat)
+        ys = [g.categories[cat].rate * 100 if cat in g.categories
+              and g.categories[cat].rate is not None else None for g in sweep]
+        ax.plot(quants, ys, marker="o", label=cat)
     ax.set_ylabel("pass rate (%)")
     ax.set_ylim(0, 105)
-    ax.set_title(f"{sweep[0]['model_name']} ({sweep[0]['lineage']}) - capability vs quantization")
+    ax.set_title(title)
     ax.grid(True, alpha=0.3)
-    ax.legend()
-    path = out_dir / "quant_curve.png"
+    ax.legend(fontsize=8)
     fig.savefig(path, **_FIG_KW)
     plt.close(fig)
     return path
 
 
-def _matched_pair(runs: list[sqlite3.Row]) -> tuple[sqlite3.Row, sqlite3.Row] | None:
+def chart_quant_curve(conn, out_dir: Path) -> Path | str:
+    sweep = _sweep(merged_stats(conn))
+    if len(sweep) < 3:
+        return "needs >=3 quants of one model (run the sweep)"
+    cats = sorted({c for g in sweep for c, s in g.categories.items()
+                   if s.rate is not None and not c.startswith("toolcall")})
+    if not cats:
+        return "no capability categories yet"
+    g0 = sweep[0]
+    return _curve(sweep, cats,
+                  f"{g0.model_name} ({g0.lineage}) - capability vs quantization",
+                  out_dir / "quant_curve.png")
+
+
+def chart_toolcall_curve(conn, out_dir: Path) -> Path | str:
+    sweep = _sweep(merged_stats(conn))
+    sweep = [g for g in sweep if any(c.startswith("toolcall") for c in g.categories)]
+    if len(sweep) < 3:
+        return "needs >=3 quants with toolcall results (run --only 'toolcall_*' across quants)"
+    cats = sorted({c for g in sweep for c, s in g.categories.items()
+                   if s.rate is not None and c.startswith("toolcall")})
+    g0 = sweep[0]
+    return _curve(sweep, cats,
+                  f"{g0.model_name} ({g0.lineage}) - tool calling vs quantization",
+                  out_dir / "toolcall_curve.png")
+
+
+def _matched_pair(groups: dict[tuple, GroupStats]) -> tuple[GroupStats, GroupStats] | None:
     """A (base, abliterated) pair at the same quant, preferring higher-fidelity quants."""
-    base = {r["quant"]: r for r in runs if r["lineage"] == "base"}
-    ablit = {r["quant"]: r for r in runs if r["lineage"] == "abliterated"}
+    base = {g.quant: g for g in groups.values() if g.lineage == "base" and g.quant}
+    ablit = {g.quant: g for g in groups.values() if g.lineage == "abliterated" and g.quant}
     shared = sorted(set(base) & set(ablit), key=quant_rank)
     if not shared:
         return None
@@ -137,30 +177,29 @@ def _matched_pair(runs: list[sqlite3.Row]) -> tuple[sqlite3.Row, sqlite3.Row] | 
 
 
 def chart_ablit_delta(conn, out_dir: Path) -> Path | str:
-    pair = _matched_pair(latest_runs(conn))
+    pair = _matched_pair(merged_stats(conn))
     if not pair:
         return "needs a base + abliterated run at the same quant"
     b, a = pair
-    rb, ra = _category_rates(conn, b["id"]), _category_rates(conn, a["id"])
-    categories = sorted(set(rb) & set(ra))
-    if not categories:
+    cats = sorted(c for c in set(b.categories) & set(a.categories)
+                  if b.categories[c].rate is not None and a.categories[c].rate is not None)
+    if not cats:
         return "matched runs share no graded categories"
 
-    x = range(len(categories))
+    x = range(len(cats))
     w = 0.38
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.bar([i - w / 2 for i in x], [rb[c] * 100 for c in categories], w,
-           label=f"base [{b['quant']}]", color="#4878a8")
-    ax.bar([i + w / 2 for i in x], [ra[c] * 100 for c in categories], w,
-           label=f"abliterated [{a['quant']}]", color="#c44e52")
-    for i, c in enumerate(categories):
-        d = (ra[c] - rb[c]) * 100
-        ax.annotate(f"{d:+.0f}pp", (i, max(rb[c], ra[c]) * 100 + 2),
-                    ha="center", fontsize=9, fontweight="bold")
-    ax.set_xticks(list(x), categories)
+    fig, ax = plt.subplots(figsize=(max(8, 1.1 * len(cats)), 5))
+    rb = [b.categories[c].rate * 100 for c in cats]
+    ra = [a.categories[c].rate * 100 for c in cats]
+    ax.bar([i - w / 2 for i in x], rb, w, label=f"base [{b.quant}]", color="#4878a8")
+    ax.bar([i + w / 2 for i in x], ra, w, label=f"abliterated [{a.quant}]", color="#c44e52")
+    for i, c in enumerate(cats):
+        ax.annotate(f"{ra[i] - rb[i]:+.0f}pp", (i, max(rb[i], ra[i]) + 2),
+                    ha="center", fontsize=8, fontweight="bold")
+    ax.set_xticks(list(x), cats, rotation=30, ha="right", fontsize=8)
     ax.set_ylabel("pass rate (%)")
     ax.set_ylim(0, 112)
-    ax.set_title(f"{b['model_name']} - what abliteration cost, by category")
+    ax.set_title(f"{b.model_name} - what abliteration cost, by category")
     ax.grid(True, axis="y", alpha=0.3)
     ax.legend()
     path = out_dir / "ablit_delta.png"
@@ -170,19 +209,19 @@ def chart_ablit_delta(conn, out_dir: Path) -> Path | str:
 
 
 def chart_refusal_profile(conn, out_dir: Path) -> Path | str:
-    runs = [r for r in latest_runs(conn) if _refusal_counts(conn, r["id"])]
-    if not runs:
+    groups = [g for g in merged_stats(conn).values() if g.label_counts()]
+    if not groups:
         return "no refusal-graded results yet"
-    runs = sorted(runs, key=lambda r: (r["lineage"] != "base", quant_rank(r["quant"])))
+    groups = sorted(groups, key=lambda g: (g.lineage != "base", quant_rank(g.quant)))
 
-    labels = [f"{r['lineage']}\n[{r['quant']}]" for r in runs]
+    labels = [f"{g.lineage}\n[{g.quant}]" for g in groups]
     order = ["complied", "hedged", "refused"]
     colors = {"complied": "#55a868", "hedged": "#dd8452", "refused": "#c44e52"}
-    counts = [_refusal_counts(conn, r["id"]) for r in runs]
+    counts = [g.label_counts() for g in groups]
     totals = [sum(c.values()) for c in counts]
 
-    fig, ax = plt.subplots(figsize=(max(7, 1.2 * len(runs)), 5))
-    bottom = [0.0] * len(runs)
+    fig, ax = plt.subplots(figsize=(max(7, 1.2 * len(groups)), 5))
+    bottom = [0.0] * len(groups)
     for lab in order:
         vals = [100 * c.get(lab, 0) / t for c, t in zip(counts, totals)]
         ax.bar(labels, vals, bottom=bottom, label=lab, color=colors[lab])
@@ -201,21 +240,20 @@ def chart_refusal_profile(conn, out_dir: Path) -> Path | str:
 
 
 def chart_pareto(conn, out_dir: Path) -> Path | str:
-    runs = [r for r in latest_runs(conn) if r["quant"]]
     points = []
-    for r in runs:
-        rate, tps = _overall(conn, r["id"])
-        if rate is not None and tps:
-            points.append((r, rate, tps))
+    for g in merged_stats(conn).values():
+        rate, tps = g.capability_rate(), g.avg_tps()
+        if g.quant and rate is not None and tps:
+            points.append((g, rate, tps))
     if len(points) < 3:
         return "needs >=3 runs with capability results"
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    for r, rate, tps in points:
-        gb = (r["model_size_bytes"] or 0) / 1e9
-        color = "#c44e52" if r["lineage"] == "abliterated" else "#4878a8"
+    for g, rate, tps in points:
+        gb = (g.model_size_bytes or 0) / 1e9
+        color = "#c44e52" if g.lineage == "abliterated" else "#4878a8"
         ax.scatter(tps, rate * 100, s=120 * max(gb, 0.3), color=color, alpha=0.75, zorder=3)
-        ax.annotate(f" {r['quant']} ({gb:.1f} GB)", (tps, rate * 100), fontsize=9)
+        ax.annotate(f" {g.quant} ({gb:.1f} GB)", (tps, rate * 100), fontsize=9)
     ax.set_xlabel("generation speed (tok/s, server-reported)")
     ax.set_ylabel("overall capability pass rate (%)")
     ax.set_title("Quality vs speed - where the knee is (marker size = file size)")
@@ -228,20 +266,20 @@ def chart_pareto(conn, out_dir: Path) -> Path | str:
 
 def chart_ppl_curve(conn, out_dir: Path) -> Path | str:
     """Perplexity vs quant - the intrinsic metric; moves smoothly where task scores jump."""
-    sweep = [r for r in _sweep_runs(latest_runs(conn)) if r["ppl"]]
+    sweep = [g for g in _sweep(merged_stats(conn)) if g.ppl]
     if len(sweep) < 3:
         return "needs >=3 runs with stored ppl (run `crucible ppl <model>`)"
-    chunk_counts = {r["ppl_chunks"] for r in sweep}
+    chunk_counts = {g.ppl_chunks for g in sweep}
     if len(chunk_counts) > 1:
         return f"mixed ppl_chunks {sorted(chunk_counts)} - values not comparable; re-measure"
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    quants = [r["quant"] for r in sweep]
-    ax.plot(quants, [r["ppl"] for r in sweep], marker="o", color="#4878a8")
-    for r in sweep:
-        ax.annotate(f" {r['ppl']:.2f}", (r["quant"], r["ppl"]), fontsize=9)
-    ax.set_ylabel(f"WikiText-2 perplexity ({sweep[0]['ppl_chunks']} chunks, lower = better)")
-    ax.set_title(f"{sweep[0]['model_name']} ({sweep[0]['lineage']}) - perplexity vs quantization")
+    quants = [g.quant for g in sweep]
+    ax.plot(quants, [g.ppl for g in sweep], marker="o", color="#4878a8")
+    for g in sweep:
+        ax.annotate(f" {g.ppl:.2f}", (g.quant, g.ppl), fontsize=9)
+    ax.set_ylabel(f"WikiText-2 perplexity ({sweep[0].ppl_chunks} chunks, lower = better)")
+    ax.set_title(f"{sweep[0].model_name} ({sweep[0].lineage}) - perplexity vs quantization")
     ax.grid(True, alpha=0.3)
     path = out_dir / "ppl_curve.png"
     fig.savefig(path, **_FIG_KW)
@@ -251,6 +289,7 @@ def chart_ppl_curve(conn, out_dir: Path) -> Path | str:
 
 CHARTS = {
     "quant_curve": chart_quant_curve,
+    "toolcall_curve": chart_toolcall_curve,
     "ablit_delta": chart_ablit_delta,
     "refusal_profile": chart_refusal_profile,
     "pareto": chart_pareto,
