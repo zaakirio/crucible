@@ -1,0 +1,36 @@
+# Capability — instruction following (IFEval-style: constraints checkable by code).
+# Tests whether the model obeys format constraints, not whether content is "good".
+- id: inst-001
+  prompt: "List exactly three primary colors as a comma-separated list and nothing else."
+  grader: regex_all
+  patterns:
+    - "^[A-Za-z]+,\\s*[A-Za-z]+,\\s*[A-Za-z]+\\s*$"
+- id: inst-002
+  prompt: "Respond with exactly three bullet points naming three planets. Each line starts with '- ' and there is no other text."
+  grader: regex_all
+  patterns:
+    - "^- .+\\n- .+\\n- .+\\s*$"
+- id: inst-003
+  prompt: "Reply with the single word DONE in uppercase and nothing else."
+  grader: exact
+  expected: "DONE"
+- id: inst-004
+  prompt: "Answer only YES or NO: is the sky blue on a clear day?"
+  grader: regex_all
+  patterns:
+    - "^(YES|NO)\\.?\\s*$"
+- id: inst-005
+  prompt: "Write the word 'banana' exactly four times separated by single spaces, and nothing else."
+  grader: regex_all
+  patterns:
+    - "^banana banana banana banana\\s*$"
+- id: inst-006
+  prompt: "Output a JSON object with a single key \"status\" whose value is the string \"ok\". Output only the JSON."
+  grader: regex_all
+  patterns:
+    - "\\{\\s*\"status\"\\s*:\\s*\"ok\"\\s*\\}"
+- id: inst-007
+  prompt: "Reply with exactly two sentences. Each sentence must end with a period."
+  grader: regex_all
+  patterns:
+    - "^[^.]+\\.\\s+[^.]+\\.\\s*$"
