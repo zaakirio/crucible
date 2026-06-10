@@ -89,6 +89,25 @@ Q4_K_M, PPL 20.2 vs 18.1); above Q4 the differences don't clear the n=20 noise b
 ![capability vs quantization](charts/quant_curve.png)
 ![refusal profile](charts/refusal_profile.png)
 
+### Module 02 findings: tool calling vs quantization (no published measurements existed)
+
+| category | Q3_K_M | Q4_K_M | Q5_K_M | Q6_K | Q8_0 | F16 |
+|---|---|---|---|---|---|---|
+| single call | 25/40 | 26/40 | 25/40 | 25/40 | 25/40 | 25/40 |
+| choose right function | 13/20 | 12/20 | 13/20 | 12/20 | 13/20 | 13/20 |
+| parallel calls | 0/20 | 0/20 | 0/20 | 0/20 | 0/20 | 0/20 |
+| relevance (should call) | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
+| irrelevance (should NOT call) | 12/15 | 10/15 | 8/15 | 9/15 | 9/15 | 9/15 |
+
+Three findings: (1) **quantization does not touch tool calling** on this model - the same
+Q3_K_M that lost 30pp of GSM8K tool-calls identically to F16; (2) what actually gates tool
+use at 1.2B is **parallel calling (0% everywhere)** - the model emits exactly one well-formed
+call no matter how many are required; (3) the serving stack is part of the result -
+llama-server's tool-call parser returned a 500 on one Q5 output (recorded as a failure with
+the error body, not a crash). Abliteration delta on tool calling at Q4_K_M: zero.
+
+![tool calling vs quantization](charts/toolcall_curve.png)
+
 ### Test suites
 
 | Category | Source | Grader |
