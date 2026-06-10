@@ -4,7 +4,8 @@
 models — capability, tool-calling, agents, and RAG — with first-class tracking of what quantization
 and refusal-direction removal actually cost a model.
 
-> Building in public. WIP. See [`../roadmap/`](../roadmap/) for the full plan.
+> Building in public. WIP — currently at Module 01 of a ten-module plan that grows this into
+> tool-calling, agent, and RAG evals with a CI regression gate and a public leaderboard.
 
 ## Why
 
@@ -28,11 +29,15 @@ uv sync
 # seed the paper-comparable suites (GSM8K, XSTest) — deterministic, fixed seed
 uv run python scripts/seed_tests.py
 
+# grab a model straight from Hugging Face (any repo with GGUFs; $HF_TOKEN for gated ones)
+uv run crucible pull LiquidAI/LFM2.5-1.2B-Instruct-GGUF Q4_K_M
+uv run crucible pull bartowski/some-model-GGUF --list   # see what's in a repo first
+
 # run the full suite against a GGUF; results land in results.db
-uv run crucible run ../models/<model>.gguf -v
+uv run crucible run models/<model>.gguf -v
 
 # noise floor: same model 3x, reports which tests flap
-uv run crucible run ../models/<model>.gguf --repeat 3
+uv run crucible run models/<model>.gguf --repeat 3
 
 # the audit: diff two runs (base vs abliterated, Q4 vs Q8)
 uv run crucible runs
@@ -43,8 +48,11 @@ uv run crucible chart
 ```
 
 `crucible smoke <model>` (quick 5-prompt sanity check) and `crucible models <dir>` (list GGUFs)
-are still there from Module 00. `llama-server` is found automatically (`../llama.cpp/build/bin/`
-or `$PATH`); override with `$CRUCIBLE_LLAMA_SERVER`.
+are still there from Module 00.
+
+**Requirements:** [uv](https://docs.astral.sh/uv/) and a built
+[llama.cpp](https://github.com/ggml-org/llama.cpp) — `llama-server` is found via a sibling
+`llama.cpp/build/bin/` checkout or `$PATH`; override with `$CRUCIBLE_LLAMA_SERVER`.
 
 ### Test suites
 

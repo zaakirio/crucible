@@ -160,6 +160,27 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_pull(args: argparse.Namespace) -> int:
+    from . import hub  # httpx import cost only when pulling
+
+    files = hub.list_ggufs(args.repo_id)
+    if args.filter:
+        files = [f for f in files if args.filter.lower() in f.path.lower()]
+    if not files:
+        print(f"No .gguf files matching {args.filter!r} in {args.repo_id}", file=sys.stderr)
+        return 1
+    if args.list:
+        for f in files:
+            print(f"{f.size / 1e9:6.2f} GB  {f.path}")
+        return 0
+    total = sum(f.size for f in files)
+    print(f"› pulling {len(files)} file(s), {total / 1e9:.2f} GB total, from {args.repo_id}")
+    for f in files:
+        dest = hub.download(args.repo_id, f, Path(args.dir))
+        print(f"  ok    {dest}")
+    return 0
+
+
 def cmd_chart(args: argparse.Namespace) -> int:
     from .charts import render_all  # matplotlib import is slow; defer it
 
@@ -222,6 +243,14 @@ def main(argv: list[str] | None = None) -> int:
     p_cmp.add_argument("run_b", type=int, help="comparison run id")
     p_cmp.add_argument("--db", default="results.db")
     p_cmp.set_defaults(func=cmd_compare)
+
+    p_pull = sub.add_parser("pull", help="download GGUFs from a Hugging Face repo")
+    p_pull.add_argument("repo_id", help="e.g. LiquidAI/LFM2.5-1.2B-Instruct-GGUF")
+    p_pull.add_argument("filter", nargs="?", default=None,
+                        help="only files whose name contains this (e.g. Q4_K_M)")
+    p_pull.add_argument("--dir", default="models", help="destination directory (default: models/)")
+    p_pull.add_argument("--list", action="store_true", help="list matching files, don't download")
+    p_pull.set_defaults(func=cmd_pull)
 
     p_chart = sub.add_parser("chart", help="render findings as PNG charts")
     p_chart.add_argument("--db", default="results.db")
