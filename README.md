@@ -54,6 +54,22 @@ are still there from Module 00.
 [llama.cpp](https://github.com/ggml-org/llama.cpp) — `llama-server` is found via a sibling
 `llama.cpp/build/bin/` checkout or `$PATH`; override with `$CRUCIBLE_LLAMA_SERVER`.
 
+### First findings (LFM2.5-1.2B, base vs Heretic-abliterated, Q3_K_M→F16, 2026-06-10)
+
+| category | base [Q4_K_M] | abliterated [Q4_K_M] | Δ |
+|---|---|---|---|
+| gsm8k | 15/20 | 15/20 | +0pp |
+| code | 5/6 | 5/6 | +0pp |
+| instruction | 7/7 | 7/7 | +0pp |
+| xstest | 32 complied / 3 hedged / 5 refused | **40 complied / 0 / 0** | the point |
+
+Zero measured capability cost; the entire abliteration effect shows up in the refusal profile.
+Q3_K_M is the quant cliff (GSM8K −30pp vs Q4_K_M); above Q4 the differences don't clear the n=20
+noise bar. Noise floor: 0/94 tests flapped across 3 repetitions at temperature 0.
+
+![capability vs quantization](charts/quant_curve.png)
+![refusal profile](charts/refusal_profile.png)
+
 ### Test suites
 
 | Category | Source | Grader |
