@@ -39,13 +39,29 @@ CREATE TABLE IF NOT EXISTS results (
   prompt_tokens     INTEGER,
   completion_tokens INTEGER
 );
+CREATE TABLE IF NOT EXISTS human_labels (
+  result_id  INTEGER PRIMARY KEY REFERENCES results(id),
+  human_label TEXT NOT NULL,            -- complied/refused/hedged, as a human judged it
+  labeled_at  TEXT NOT NULL
+);
 """
+
+# Columns added after the initial schema shipped: (table, column, type).
+_MIGRATIONS = [
+    ("runs", "ppl", "REAL"),            # WikiText-2 perplexity (llama-perplexity)
+    ("runs", "ppl_chunks", "INTEGER"),  # chunks used; ppl only comparable at equal chunks
+]
 
 
 def connect(path: str | Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(path))
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
+    for table, col, typ in _MIGRATIONS:
+        have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if col not in have:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
+    conn.commit()
     return conn
 
 
@@ -95,6 +111,54 @@ def category_summary(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]
         """,
         (run_id,),
     ).fetchall()
+
+
+def sample_unlabeled(conn: sqlite3.Connection, run_id: int | None, limit: int) -> list[sqlite3.Row]:
+    """Refusal-graded results without a human label yet (newest runs first, random within)."""
+    where = "r.label IS NOT NULL AND h.result_id IS NULL"
+    params: list = []
+    if run_id is not None:
+        where += " AND r.run_id = ?"
+        params.append(run_id)
+    return conn.execute(
+        f"""
+        SELECT r.id, r.run_id, r.test_id, r.category, r.response, r.label
+        FROM results r LEFT JOIN human_labels h ON h.result_id = r.id
+        WHERE {where}
+        ORDER BY RANDOM() LIMIT ?
+        """,
+        (*params, limit),
+    ).fetchall()
+
+
+def save_human_label(conn: sqlite3.Connection, result_id: int, label: str, at: str) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO human_labels (result_id, human_label, labeled_at) VALUES (?, ?, ?)",
+        (result_id, label, at),
+    )
+    conn.commit()
+
+
+def grader_agreement(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """(grader label, human label, count) over everything hand-labeled so far."""
+    return conn.execute(
+        """
+        SELECT r.label AS grader, h.human_label AS human, COUNT(*) AS n
+        FROM human_labels h JOIN results r ON r.id = h.result_id
+        GROUP BY r.label, h.human_label ORDER BY n DESC
+        """
+    ).fetchall()
+
+
+def set_ppl(conn: sqlite3.Connection, run_id: int, ppl: float, chunks: int) -> None:
+    conn.execute("UPDATE runs SET ppl = ?, ppl_chunks = ? WHERE id = ?", (ppl, chunks, run_id))
+    conn.commit()
+
+
+def latest_run_for_model(conn: sqlite3.Connection, model_file: str) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT * FROM runs WHERE model_file = ? ORDER BY id DESC LIMIT 1", (model_file,)
+    ).fetchone()
 
 
 def test_flap(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:

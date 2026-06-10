@@ -226,11 +226,35 @@ def chart_pareto(conn, out_dir: Path) -> Path | str:
     return path
 
 
+def chart_ppl_curve(conn, out_dir: Path) -> Path | str:
+    """Perplexity vs quant — the intrinsic metric; moves smoothly where task scores jump."""
+    sweep = [r for r in _sweep_runs(latest_runs(conn)) if r["ppl"]]
+    if len(sweep) < 3:
+        return "needs >=3 runs with stored ppl (run `crucible ppl <model>`)"
+    chunk_counts = {r["ppl_chunks"] for r in sweep}
+    if len(chunk_counts) > 1:
+        return f"mixed ppl_chunks {sorted(chunk_counts)} — values not comparable; re-measure"
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    quants = [r["quant"] for r in sweep]
+    ax.plot(quants, [r["ppl"] for r in sweep], marker="o", color="#4878a8")
+    for r in sweep:
+        ax.annotate(f" {r['ppl']:.2f}", (r["quant"], r["ppl"]), fontsize=9)
+    ax.set_ylabel(f"WikiText-2 perplexity ({sweep[0]['ppl_chunks']} chunks, lower = better)")
+    ax.set_title(f"{sweep[0]['model_name']} ({sweep[0]['lineage']}) — perplexity vs quantization")
+    ax.grid(True, alpha=0.3)
+    path = out_dir / "ppl_curve.png"
+    fig.savefig(path, **_FIG_KW)
+    plt.close(fig)
+    return path
+
+
 CHARTS = {
     "quant_curve": chart_quant_curve,
     "ablit_delta": chart_ablit_delta,
     "refusal_profile": chart_refusal_profile,
     "pareto": chart_pareto,
+    "ppl_curve": chart_ppl_curve,
 }
 
 

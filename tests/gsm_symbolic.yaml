@@ -1,0 +1,154 @@
+# GSM-Symbolic (apple/GSM-Symbolic; Mirzadeh et al., ICLR 2025) — contamination-resistant
+# math: regenerated instances of GSM8K-style templates. Use these for ABSOLUTE capability
+# claims; gsm8k.yaml stays for paper-comparable deltas. One instance per original template,
+# deterministic sample of 20 via scripts/seed_tests.py (seed 20260610).
+- id: gsmsym-001
+  prompt: Amelia walks 24 kilometers every day on her favorite walking trail, which includes 11 kilometers
+    of walking on the beach and 13 kilometers of walking on the sidewalk. On the sidewalk, Amelia walks
+    at two times the rate of speed that she does on the beach. If 44 minutes of her walk is spent on the
+    beach, how long does it take for her to complete the entire 24-kilometer walk, in minutes? Give the
+    final answer as just the number on the last line.
+  grader: numeric
+  expected: 70
+  tolerance: 0.001
+- id: gsmsym-002
+  prompt: Mohammed hid 8 dozen eggs in the yard for the Easter egg hunt. Jin finds 12 eggs. Esteban finds
+    twice as many as Jin. Hiroshi finds 3 less than Esteban, and Tara finds a third as many as Hiroshi.
+    How many eggs are still hidden in the yard? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 32
+  tolerance: 0.001
+- id: gsmsym-003
+  prompt: At the beginning of the conference, there were 63 nurses and 63 engineers. After 45 minutes,
+    1/2 of the total number of people left. How many engineers are left if 22 nurses stayed at the conference?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 41
+  tolerance: 0.001
+- id: gsmsym-004
+  prompt: A fog bank rolls in from the ocean to cover a city. It takes 241 minutes to cover every 5 miles
+    of the city. If the city is 85 miles across from the oceanfront to the opposite inland edge, how many
+    minutes will it take for the fog bank to cover the whole city? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 4097
+  tolerance: 0.001
+- id: gsmsym-005
+  prompt: "There are currently 12 yellow balls, 19 purple balls, and 18 green balls in the store. Yellow\
+    \ balls cost \u20BA7, green balls cost \u20BA7, and purple balls cost \u20BA6. How much will the store\
+    \ have received after all the balls are sold? Give the final answer as just the number on the last\
+    \ line."
+  grader: numeric
+  expected: 324
+  tolerance: 0.001
+- id: gsmsym-006
+  prompt: Mateo receives 100 emails a day. 14% of those emails don't require any response. Mateo responds
+    to the rest of them. How many emails does Mateo respond to in a 3 day work week? Give the final answer
+    as just the number on the last line.
+  grader: numeric
+  expected: 258
+  tolerance: 0.001
+- id: gsmsym-007
+  prompt: Amelia can peel 10 onions a minute and saute 25 onions in 9 minutes. How long will it take her
+    to peel and saute 150 onions? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 69
+  tolerance: 0.001
+- id: gsmsym-008
+  prompt: There are 120 third-graders at Oak Ridge School. 87 of them are girls. On Wednesday, 3 third-grade
+    girls and 7 third-grade boys were absent. How many third grade boys were at Oak Ridge School on Wednesday?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 26
+  tolerance: 0.001
+- id: gsmsym-009
+  prompt: It takes Amelia 29 minutes to finish a jigsaw puzzle and 5 minutes to finish a word puzzle.
+    Over the holiday she solved 3 jigsaw puzzles and 6 word puzzles. How much time did she spend playing
+    these games? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 117
+  tolerance: 0.001
+- id: gsmsym-010
+  prompt: The area of DeShawn's rectangular living room is 465 square feet. If the length of his room
+    is 5 yards, what is the perimeter of the room in feet? Give the final answer as just the number on
+    the last line.
+  grader: numeric
+  expected: 92
+  tolerance: 0.001
+- id: gsmsym-011
+  prompt: The biggest waterslide at Neptunes Kingdom is 330 meters long, and people slide down at 55 meters/minute.
+    The second biggest waterslide is 240 meters long, but steeper, so people slide down at 80 meters/minute.
+    How much longer does it take to ride the biggest slide compared to the second biggest slide? Give
+    the final answer as just the number on the last line.
+  grader: numeric
+  expected: 3
+  tolerance: 0.001
+- id: gsmsym-012
+  prompt: In a 140-item quiz, 10% of the questions are physics, and the rest are equally divided as history
+    and geometry questions. If Ava is sure to get 100% of the physics questions, and 1/7 of the history
+    and geometry questions correctly, how many points is she sure to get? Give the final answer as just
+    the number on the last line.
+  grader: numeric
+  expected: 32
+  tolerance: 0.001
+- id: gsmsym-013
+  prompt: "Mateo has 8 \u20AC10 bills. He buys 3 action figures for \u20AC8 each. He also buys 4 packs\
+    \ of candy bars for \u20AC2 each. How much money does he have left? Give the final answer as just\
+    \ the number on the last line."
+  grader: numeric
+  expected: 48
+  tolerance: 0.001
+- id: gsmsym-014
+  prompt: Ali has a bag of marbles with 96 inside. He tripped over root while carrying it and dropped
+    three-sixths of them. He scrambled to search for them but only came up with 18. When he went back
+    home, he inspected the marbles further. Two of them he picked up weren't marbles, but actually beads
+    so he got rid of it. How many marbles did Ali end up with? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 64
+  tolerance: 0.001
+- id: gsmsym-015
+  prompt: A maintenance worker has to clean a university with 200 rooms. They have 10 days to get it done.
+    It takes them 15 minutes per room. If they work 10 hours each day, what percentage of their day, on
+    average, is spent cleaning rooms? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 50
+  tolerance: 0.001
+- id: gsmsym-016
+  prompt: There are 8 periods in the day for a normal student but Mohammed has to take 3 extra classes.
+    Each class is 35 minutes long. He goes to class for 4 days a week. He then spends one-seventh of his
+    weekly minutes each on Saturday and Sunday as extra learning time. How many hours a week does he spend
+    learning? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 33
+  tolerance: 0.001
+- id: gsmsym-017
+  prompt: Liam and Camila have 126 minutes to walk to the mall together. It takes them 26 minutes to get
+    to the corner where the cinema is. It takes them another 54 minutes to get to the bank. How much longer
+    do they have to get to mall without being late? Give the final answer as just the number on the last
+    line.
+  grader: numeric
+  expected: 46
+  tolerance: 0.001
+- id: gsmsym-018
+  prompt: There are 16 girls in the garden. If there are 3/4 the number of boys in the garden, how many
+    kids are in the garden? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 28
+  tolerance: 0.001
+- id: gsmsym-019
+  prompt: "Luis has \xA5104.52 and wants to buy 59 nuts from a bin at the hardware store. Each nut costs\
+    \ \xA50.28. How much money does Luis have left after paying for the nuts? Give the final answer as\
+    \ just the number on the last line."
+  grader: numeric
+  expected: 88
+  tolerance: 0.001
+- id: gsmsym-020
+  prompt: "Thiago is selling cookie and watermelon pie for a fundraiser. On Thursday, he sold 26 boxes\
+    \ of cookie and 17 fewer boxes of watermelon pie, than on Friday. On Friday, he sold 13 more boxes\
+    \ of cookies than on Thursday and 27 boxes of watermelon pie. If the cookie cost \u20AC9 and the watermelon\
+    \ pie cost \u20AC23, how much did Thiago earn for two days? Give the final answer as just the number\
+    \ on the last line."
+  grader: numeric
+  expected: 1436
+  tolerance: 0.001

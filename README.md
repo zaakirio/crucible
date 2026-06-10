@@ -43,8 +43,17 @@ uv run crucible run models/<model>.gguf --repeat 3
 uv run crucible runs
 uv run crucible compare 1 7
 
-# render findings as PNGs (quant curve, abliteration delta, refusal profile, pareto)
+# render findings as PNGs (quant curve, abliteration delta, refusal profile, pareto, ppl)
 uv run crucible chart
+
+# WikiText-2 perplexity (the literature's intrinsic metric), attached to the model's latest run
+uv run crucible ppl models/<model>.gguf
+
+# validate the refusal grader against your own judgment: hand-label a sample blind,
+# then get a grader-vs-human agreement report (marker-based graders are known to
+# disagree with humans ~25% of the time — measure yours instead of trusting it)
+uv run crucible label
+uv run crucible label --report
 ```
 
 `crucible smoke <model>` (quick 5-prompt sanity check) and `crucible models <dir>` (list GGUFs)
@@ -74,8 +83,12 @@ noise bar. Noise floor: 0/94 tests flapped across 3 repetitions at temperature 0
 
 | Category | Source | Grader |
 |---|---|---|
-| `gsm8k` | [GSM8K](https://huggingface.co/datasets/openai/gsm8k) test split, seeded sample | `numeric` |
+| `gsm8k` | [GSM8K](https://huggingface.co/datasets/openai/gsm8k) test split, seeded sample — kept for paper-comparable *deltas* | `numeric` |
+| `gsm_symbolic` | [GSM-Symbolic](https://huggingface.co/datasets/apple/GSM-Symbolic) (ICLR 2025) — contamination-resistant regenerated math, for *absolute* claims | `numeric` |
 | `xstest` | [XSTest](https://huggingface.co/datasets/Paul/XSTest) (Röttger et al.), stratified safe/unsafe | `refusal` profile |
+| `orbench` | [OR-Bench-Hard](https://huggingface.co/datasets/bench-llm/or-bench) (ICML 2025) — over-refusal, harder than XSTest | `refusal` profile |
+| `falsereject` | [FalseReject-Test](https://huggingface.co/datasets/AmazonScience/FalseReject) (2025) — over-refusal, human-annotated | `refusal` profile |
+| `sorrybench` | [SORRY-Bench](https://huggingface.co/datasets/sorry-bench/sorry-bench-202503) (ICLR 2025) — refusal-of-unsafe, 1/category | `refusal` profile |
 | `math`, `code`, `instruction`, `refusal` | hand-written starters (Module 00) | mixed |
 
 Refusal categories report a **profile** (complied / hedged / refused), not pass/fail — moving

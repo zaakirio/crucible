@@ -199,6 +199,82 @@ def cmd_chart(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_prompts(tests_dir: Path) -> dict[str, str]:
+    from .runner import load_tests
+
+    try:
+        return {t["id"]: t["prompt"] for _, t in load_tests(tests_dir)}
+    except Exception:
+        return {}
+
+
+def cmd_label(args: argparse.Namespace) -> int:
+    """Hand-label sampled refusal responses; report grader-vs-human agreement.
+
+    The grader's verdict is hidden until after you answer, so it can't anchor you.
+    """
+    from datetime import datetime, timezone
+
+    conn = db.connect(args.db)
+    if not args.report_only:
+        prompts = _load_prompts(Path(args.tests))
+        rows = db.sample_unlabeled(conn, args.run, args.n)
+        if not rows:
+            print("Nothing unlabeled to sample — run the suite first, or see --report.")
+        for i, r in enumerate(rows, 1):
+            print(f"\n--- {i}/{len(rows)}  [{r['category']}/{r['test_id']}  run #{r['run_id']}]")
+            if r["test_id"] in prompts:
+                print(f"PROMPT:   {prompts[r['test_id']]}")
+            resp = (r["response"] or "").strip()
+            print(f"RESPONSE: {resp[:1500]}{' …[truncated]' if len(resp) > 1500 else ''}")
+            while True:
+                ans = input("[c]omplied / [h]edged / [r]efused / [s]kip / [q]uit > ").strip().lower()
+                if ans in ("c", "h", "r", "s", "q"):
+                    break
+            if ans == "q":
+                break
+            if ans == "s":
+                continue
+            label = {"c": "complied", "h": "hedged", "r": "refused"}[ans]
+            db.save_human_label(conn, r["id"], label,
+                                datetime.now(timezone.utc).isoformat(timespec="seconds"))
+            agree = "agrees" if label == r["label"] else f"DISAGREES (grader said {r['label']})"
+            print(f"  saved: {label} — grader {agree}")
+
+    cells = db.grader_agreement(conn)
+    conn.close()
+    if not cells:
+        print("\nNo human labels stored yet.")
+        return 0
+    total = sum(c["n"] for c in cells)
+    agree = sum(c["n"] for c in cells if c["grader"] == c["human"])
+    print(f"\n› grader vs human agreement: {agree}/{total} ({100 * agree / total:.0f}%)")
+    print(f"  {'grader':10} {'human':10} {'n':>4}")
+    for c in cells:
+        mark = "" if c["grader"] == c["human"] else "   ←"
+        print(f"  {c['grader']:10} {c['human']:10} {c['n']:>4}{mark}")
+    return 0
+
+
+def cmd_ppl(args: argparse.Namespace) -> int:
+    from .ppl import measure_ppl
+
+    model = Path(args.model).expanduser().resolve()
+    print(f"› measuring WikiText-2 perplexity for {model.name} ({args.chunks} chunks) ...")
+    value = measure_ppl(model, chunks=args.chunks, ngl=args.ngl)
+    print(f"  PPL = {value:.4f}")
+
+    conn = db.connect(args.db)
+    run = db.latest_run_for_model(conn, str(model))
+    if run:
+        db.set_ppl(conn, run["id"], value, args.chunks)
+        print(f"  attached to run #{run['id']} ({run['model_name']}[{run['quant']}])")
+    else:
+        print("  no stored run for this model file — value not attached (run `crucible run` first)")
+    conn.close()
+    return 0
+
+
 def cmd_runs(args: argparse.Namespace) -> int:
     conn = db.connect(args.db)
     rows = db.list_runs(conn)
@@ -256,6 +332,23 @@ def main(argv: list[str] | None = None) -> int:
     p_chart.add_argument("--db", default="results.db")
     p_chart.add_argument("--out", default="charts", help="output directory (default: charts/)")
     p_chart.set_defaults(func=cmd_chart)
+
+    p_label = sub.add_parser("label", help="hand-label refusal responses; report grader agreement")
+    p_label.add_argument("-n", type=int, default=50, help="how many to sample (default: 50)")
+    p_label.add_argument("--run", type=int, default=None, help="restrict to one run id")
+    p_label.add_argument("--db", default="results.db")
+    p_label.add_argument("--tests", default="tests", help="tests dir, used to show prompts")
+    p_label.add_argument("--report", dest="report_only", action="store_true",
+                         help="just print the agreement report")
+    p_label.set_defaults(func=cmd_label)
+
+    p_ppl = sub.add_parser("ppl", help="WikiText-2 perplexity; attaches to the model's latest run")
+    p_ppl.add_argument("model", help="path to a .gguf file")
+    p_ppl.add_argument("--chunks", type=int, default=32,
+                       help="512-token chunks (default: 32; comparable only at equal chunks)")
+    p_ppl.add_argument("--ngl", type=int, default=99)
+    p_ppl.add_argument("--db", default="results.db")
+    p_ppl.set_defaults(func=cmd_ppl)
 
     p_runs = sub.add_parser("runs", help="list stored runs")
     p_runs.add_argument("--db", default="results.db")
