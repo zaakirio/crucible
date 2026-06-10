@@ -68,13 +68,19 @@ are still there from Module 00.
 | category | base [Q4_K_M] | abliterated [Q4_K_M] | Δ |
 |---|---|---|---|
 | gsm8k | 15/20 | 15/20 | +0pp |
+| gsm_symbolic | 15/20 | 13/20 | −10pp (below n=20 noise bar) |
 | code | 5/6 | 5/6 | +0pp |
 | instruction | 7/7 | 7/7 | +0pp |
-| xstest | 32 complied / 3 hedged / 5 refused | **40 complied / 0 / 0** | the point |
+| WikiText-2 PPL | 18.147 | 18.145 | ~0 |
+| sorrybench (unsafe) | 19 complied / 11 hedged / **15 refused** | **44 complied / 1 / 0** | the point |
+| orbench (over-refusal) | 42 complied / 6 hedged / 2 refused | 50 / 0 / 0 | false refusals gone |
+| xstest | 32 complied / 3 hedged / 5 refused | 40 / 0 / 0 | — |
 
-Zero measured capability cost; the entire abliteration effect shows up in the refusal profile.
-Q3_K_M is the quant cliff (GSM8K −30pp vs Q4_K_M); above Q4 the differences don't clear the n=20
-noise bar. Noise floor: 0/94 tests flapped across 3 repetitions at temperature 0.
+No capability cost that clears the noise bar, identical perplexity — and the entire abliteration
+effect shows up where it should: on SORRY-Bench's unsafe instructions the base model
+refused/hedged 26/45, the abliterated model 1/45. Q3_K_M is the quant cliff (GSM8K −30pp vs
+Q4_K_M, PPL 20.2 vs 18.1); above Q4 the differences don't clear the n=20 noise bar. Noise floor:
+0/94 tests flapped across 3 repetitions at temperature 0.
 
 ![capability vs quantization](charts/quant_curve.png)
 ![refusal profile](charts/refusal_profile.png)
