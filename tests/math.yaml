@@ -1,6 +1,6 @@
 # Capability - math. grader: numeric (extracts the last number, compares within tolerance).
 # Prompts ask for "just the number" to keep grading clean. Seeded by hand for the harness;
-# Module 01 follow-up swaps in items sampled from GSM8K so numbers are paper-comparable.
+# Seeded from GSM8K so the numbers are paper-comparable.
 - id: math-001
   prompt: "A train travels 60 km in 45 minutes. What is its speed in km/h? Answer with just the number."
   grader: numeric

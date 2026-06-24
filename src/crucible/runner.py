@@ -29,12 +29,16 @@ _ABLITERATED_MARKERS = ("uncensored", "abliterat", "heretic", "decensored", "dec
 def parse_model_meta(model_path: Path) -> tuple[str, str | None, str]:
     """(model_name, quant, lineage) parsed from the filename."""
     stem = model_path.stem
-    m = _QUANT_RE.search(stem)
-    quant = m.group(1) if m else None
+    quant_match = None
+    for m in _QUANT_RE.finditer(stem):
+        quant_match = m
+    quant = quant_match.group(1) if quant_match else None
     name = stem
-    if quant:
-        # strip the quant token and any trailing separators
-        name = re.sub(r"[-_.]?" + re.escape(quant) + r"$", "", stem, flags=re.IGNORECASE)
+    if quant_match:
+        # Remove the matched quant token anywhere in the stem, then normalize separators.
+        name = (stem[:quant_match.start()] + stem[quant_match.end():]).strip("._- ")
+        name = re.sub(r"[-_.]{2,}", "-", name)
+        name = name.strip("._- ")
     lineage = "abliterated" if any(k in stem.lower() for k in _ABLITERATED_MARKERS) else "base"
     return name, quant, lineage
 
@@ -72,6 +76,7 @@ def run_suite(
     ngl: int = 99,
     ctx: int = 4096,
     only: set[str] | None = None,
+    resume: bool = False,
     on_progress=None,
 ) -> int:
     model_path = Path(model_path).expanduser().resolve()
@@ -82,25 +87,49 @@ def run_suite(
 
     name, quant, lineage = parse_model_meta(model_path)
     conn = db.connect(db_path)
+    llama_commit = llama_cpp_commit()
 
+    # This is the production execution path: swap in a temporary mock server for tests,
+    # or let this context manager spawn a real llama.cpp `llama-server` binary for local runs.
     with llama_server(model_path, ngl=ngl, ctx=ctx) as srv:
-        run_id = db.create_run(
-            conn,
-            model_file=str(model_path),
-            model_name=name,
-            quant=quant,
-            lineage=lineage,
-            hardware=hardware,
-            llama_cpp_commit=llama_cpp_commit(),
-            ctx=ctx,
-            ngl=ngl,
-            repeat=repeat,
-            started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            load_time_s=srv.load_time_s,
-            model_size_bytes=model_path.stat().st_size,
+        run = (
+            db.find_resumeable_run(
+                conn,
+                model_file=str(model_path),
+                hardware=hardware,
+                ctx=ctx,
+                ngl=ngl,
+                repeat=repeat,
+                llama_cpp_commit=llama_commit,
+            )
+            if resume
+            else None
         )
+        if run:
+            run_id = run["id"]
+        else:
+            run_id = db.create_run(
+                conn,
+                model_file=str(model_path),
+                model_name=name,
+                quant=quant,
+                lineage=lineage,
+                hardware=hardware,
+                llama_cpp_commit=llama_commit,
+                ctx=ctx,
+                ngl=ngl,
+                repeat=repeat,
+                started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                load_time_s=srv.load_time_s,
+                model_size_bytes=model_path.stat().st_size,
+            )
+        seen = db.result_keys(conn, run_id)
         for category, test in tests:
             for rep in range(repeat):
+                if (test["id"], rep) in seen:
+                    if on_progress:
+                        on_progress(category, test, rep, GradeResult(passed=True, detail="skipped (resumed)"))
+                    continue
                 t0 = time.perf_counter()
                 try:
                     res = chat(
@@ -128,8 +157,39 @@ def run_suite(
                     if on_progress:
                         on_progress(category, test, rep, g)
                     continue
+                except Exception as e:
+                    latency_ms = int((time.perf_counter() - t0) * 1000)
+                    g = GradeResult(
+                        passed=False,
+                        detail=f"unexpected {type(e).__name__}: {str(e)[:120]}",
+                    )
+                    db.insert_result(
+                        conn, run_id=run_id, test_id=test["id"], category=category, rep=rep,
+                        response=f"<unexpected {type(e).__name__}> {str(e)[:200]}",
+                        passed=0, label=None, detail=g.detail, latency_ms=latency_ms,
+                        tok_per_sec=None, prompt_tokens=None, completion_tokens=None,
+                    )
+                    if on_progress:
+                        on_progress(category, test, rep, g)
+                    continue
                 latency_ms = int((time.perf_counter() - t0) * 1000)
-                g = grade(test, res.text, res.tool_calls)
+                try:
+                    g = grade(test, res.text, res.tool_calls)
+                except Exception as e:
+                    g = GradeResult(
+                        passed=False,
+                        detail=f"grade error {type(e).__name__}: {str(e)[:120]}",
+                    )
+                    db.insert_result(
+                        conn, run_id=run_id, test_id=test["id"], category=category, rep=rep,
+                        response=res.text,
+                        passed=0, label=None, detail=g.detail, latency_ms=latency_ms,
+                        tok_per_sec=res.tokens_per_second, prompt_tokens=res.prompt_tokens,
+                        completion_tokens=res.completion_tokens,
+                    )
+                    if on_progress:
+                        on_progress(category, test, rep, g)
+                    continue
                 stored = res.text
                 if res.tool_calls:  # tool-call turns have empty text; store what was called
                     calls = [{"name": c.name, "arguments": c.raw_arguments} for c in res.tool_calls]
@@ -149,6 +209,7 @@ def run_suite(
                     prompt_tokens=res.prompt_tokens,
                     completion_tokens=res.completion_tokens,
                 )
+                seen.add((test["id"], rep))
                 if on_progress:
                     on_progress(category, test, rep, g)
         db.finish_run(conn, run_id, datetime.now(timezone.utc).isoformat(timespec="seconds"))

@@ -82,7 +82,9 @@ class GroupStats:
 def merged_stats(conn: sqlite3.Connection) -> dict[tuple, GroupStats]:
     """(model_name, quant, lineage) -> GroupStats, newest run winning per category."""
     groups: dict[tuple, GroupStats] = {}
-    for run in conn.execute("SELECT * FROM runs ORDER BY id").fetchall():
+    # Only finished runs belong in aggregate reporting. Unfinished runs may be useful for
+    # resuming a local session, but they are not scientifically valid inputs to charts.
+    for run in conn.execute("SELECT * FROM runs WHERE finished_at IS NOT NULL ORDER BY id").fetchall():
         key = (run["model_name"], run["quant"], run["lineage"])
         g = groups.setdefault(key, GroupStats(run["model_name"], run["quant"], run["lineage"]))
         if run["model_size_bytes"]:

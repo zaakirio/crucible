@@ -4,7 +4,7 @@
 models - capability, tool-calling, agents, and RAG - with first-class tracking of what quantization
 and refusal-direction removal actually cost a model.
 
-> Building in public. WIP - currently at Module 01 of a ten-module plan that grows this into
+> Building in public. WIP - currently at Module 02 of a ten-module plan that grows this into
 > tool-calling, agent, and RAG evals with a CI regression gate and a public leaderboard.
 
 ## Why
@@ -39,6 +39,7 @@ uv run crucible pull bartowski/some-model-GGUF --list   # see what's in a repo f
 
 # run the full suite against a GGUF; results land in results.db
 uv run crucible run models/<model>.gguf -v
+# add --resume to continue an unfinished run after interruption
 
 # noise floor: same model 3x, reports which tests flap
 uv run crucible run models/<model>.gguf --repeat 3
@@ -54,8 +55,9 @@ uv run crucible chart
 uv run crucible ppl models/<model>.gguf
 
 # validate the refusal grader against your own judgment: hand-label a sample blind,
-# then get a grader-vs-human agreement report. Measured here: 76% agreement over 50
-# blind labels, errors entirely complied-vs-hedged - refusal calls were never wrong.
+# then get a grader-vs-human agreement report. Measured here: 38/50 (76%) agreement
+# over 50 blind labels; the disagreements were mostly complied-vs-hedged, with one
+# hedged-vs-refused case.
 uv run crucible label
 uv run crucible label --report
 ```
@@ -67,7 +69,13 @@ are still there from Module 00.
 [llama.cpp](https://github.com/ggml-org/llama.cpp) - `llama-server` is found via a sibling
 `llama.cpp/build/bin/` checkout or `$PATH`; override with `$CRUCIBLE_LLAMA_SERVER`.
 
-### First findings (LFM2.5-1.2B, base vs Heretic-abliterated, Q3_K_M→F16, 2026-06-10)
+### First findings
+
+Selected results from finished runs only. These are the exact values stored in `results.db`
+for one model family on one hardware setup and one llama.cpp commit; they are useful as
+comparative evidence, not universal claims.
+
+(LFM2.5-1.2B, base vs Heretic-abliterated, 2026-06-10)
 
 | category | base [Q4_K_M] | abliterated [Q4_K_M] | Δ |
 |---|---|---|---|
@@ -80,11 +88,11 @@ are still there from Module 00.
 | orbench (over-refusal) | 42 complied / 6 hedged / 2 refused | 50 / 0 / 0 | false refusals gone |
 | xstest | 32 complied / 3 hedged / 5 refused | 40 / 0 / 0 | - |
 
-No capability cost that clears the noise bar, identical perplexity - and the entire abliteration
-effect shows up where it should: on SORRY-Bench's unsafe instructions the base model
-refused/hedged 26/45, the abliterated model 1/45. Q3_K_M is the quant cliff (GSM8K −30pp vs
-Q4_K_M, PPL 20.2 vs 18.1); above Q4 the differences don't clear the n=20 noise bar. Noise floor:
-0/94 tests flapped across 3 repetitions at temperature 0.
+No capability cost that clears the noise bar, and the entire abliteration effect shows up where
+it should: on SORRY-Bench's unsafe instructions the base model refused/hedged 26/45, the
+abliterated model 1/45. Q3_K_M is the lowest-fidelity point in the sweep; above Q4 the differences
+do not clear the n=20 noise bar. Noise floor: 0/89 unique tests flapped across 3 repetitions at
+temperature 0.
 
 ![capability vs quantization](charts/quant_curve.png)
 ![refusal profile](charts/refusal_profile.png)
@@ -99,12 +107,13 @@ Q4_K_M, PPL 20.2 vs 18.1); above Q4 the differences don't clear the n=20 noise b
 | relevance (should call) | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
 | irrelevance (should NOT call) | 12/15 | 10/15 | 8/15 | 9/15 | 9/15 | 9/15 |
 
-Three findings: (1) **quantization does not touch tool calling** on this model - the same
-Q3_K_M that lost 30pp of GSM8K tool-calls identically to F16; (2) what actually gates tool
-use at 1.2B is **parallel calling (0% everywhere)** - the model emits exactly one well-formed
-call no matter how many are required; (3) the serving stack is part of the result -
+Three findings: (1) tool calling on this model is insensitive to quantization within the
+measured sweep, with the same Q3_K_M performance in the same ballpark as F16; (2) what actually
+gates tool use at 1.2B is **parallel calling (0% everywhere)** - the model emits exactly one
+well-formed call no matter how many are required; (3) the serving stack is part of the result -
 llama-server's tool-call parser returned a 500 on one Q5 output (recorded as a failure with
-the error body, not a crash). Abliteration delta on tool calling at Q4_K_M: zero.
+the error body, not a crash). Abliteration delta on tool calling at Q4_K_M is not observed in
+these stored runs.
 
 ![tool calling vs quantization](charts/toolcall_curve.png)
 
@@ -130,10 +139,10 @@ a recorded failure mode, not an error.
 Refusal categories report a **profile** (complied / hedged / refused), not pass/fail - moving
 refusals to complies is the *point* of abliteration, so Crucible reports where each model lands.
 
-Methodology follows the published work it extends: arXiv 2512.13655 (abliteration impact across
-16 models) and arXiv 2601.14277 (llama.cpp quant impact, task-dependent).
+Methodology follows the published work it extends, but the results here are local, model-specific,
+and version-specific. They should be treated as reproducible measurements on the recorded setup,
+not as generalized benchmark claims.
 
 ## Next
 
 Module 02 adds tool-calling evals: right function, valid arguments, knowing when *not* to call.
-See the roadmap.

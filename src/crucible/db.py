@@ -73,6 +73,27 @@ def create_run(conn: sqlite3.Connection, **fields) -> int:
     return cur.lastrowid
 
 
+def find_resumeable_run(conn: sqlite3.Connection, **fields) -> sqlite3.Row | None:
+    """Latest unfinished run matching the supplied signature, if any.
+
+    The caller decides which fields define a compatible resume target. We keep the lookup
+    simple and explicit so resuming never silently crosses model, hardware, or runner changes.
+    """
+    clauses = ["finished_at IS NULL"]
+    params: list = []
+    for col, value in fields.items():
+        if value is None:
+            clauses.append(f"{col} IS NULL")
+        else:
+            clauses.append(f"{col} = ?")
+            params.append(value)
+    where = " AND ".join(clauses)
+    return conn.execute(
+        f"SELECT * FROM runs WHERE {where} ORDER BY id DESC LIMIT 1",
+        params,
+    ).fetchone()
+
+
 def finish_run(conn: sqlite3.Connection, run_id: int, finished_at: str) -> None:
     conn.execute("UPDATE runs SET finished_at = ? WHERE id = ?", (finished_at, run_id))
     conn.commit()
@@ -91,6 +112,11 @@ def get_run(conn: sqlite3.Connection, run_id: int) -> sqlite3.Row | None:
 
 def list_runs(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return conn.execute("SELECT * FROM runs ORDER BY id DESC").fetchall()
+
+
+def result_keys(conn: sqlite3.Connection, run_id: int) -> set[tuple[str, int]]:
+    rows = conn.execute("SELECT test_id, rep FROM results WHERE run_id = ?", (run_id,)).fetchall()
+    return {(r["test_id"], r["rep"]) for r in rows}
 
 
 def category_summary(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:

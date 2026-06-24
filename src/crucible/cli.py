@@ -1,4 +1,4 @@
-"""Crucible CLI - Module 00.
+"""Crucible CLI - Module 02.
 
 Commands:
   crucible models [DIR]      list GGUF files (default: ./models)
@@ -16,7 +16,7 @@ from .client import chat
 from .runner import run_suite
 from .server import llama_server
 
-# Five hardcoded prompts spanning the categories Module 01 will formalize. No grading yet -
+# Five hardcoded prompts spanning the basic capability categories. No grading yet -
 # this is the smoke test: prove we can drive a model end to end.
 SMOKE_PROMPTS: list[tuple[str, str]] = [
     ("math", "A train travels 60 km in 45 minutes. What is its speed in km/h? Answer with just the number."),
@@ -92,6 +92,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         ngl=args.ngl,
         ctx=args.ctx,
         only=set(args.only.split(",")) if args.only else None,
+        resume=args.resume,
         on_progress=progress if args.verbose else None,
     )
 
@@ -128,6 +129,10 @@ def cmd_compare(args: argparse.Namespace) -> int:
     a, b = db.get_run(conn, args.run_a), db.get_run(conn, args.run_b)
     if not a or not b:
         print("One or both run ids not found. Try `crucible runs`.", file=sys.stderr)
+        return 1
+    if a["finished_at"] is None or b["finished_at"] is None:
+        print("Compare only accepts finished runs. Use `crucible runs` to find completed ids.",
+              file=sys.stderr)
         return 1
 
     sa = {c["category"]: c for c in db.category_summary(conn, args.run_a)}
@@ -312,6 +317,8 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument("--repeat", type=int, default=1, help="repetitions per test (noise check)")
     p_run.add_argument("--only", default=None,
                        help="comma-separated categories to run; trailing * = prefix (toolcall_*)")
+    p_run.add_argument("--resume", action="store_true",
+                       help="resume the latest unfinished compatible run if one exists")
     p_run.add_argument("--ngl", type=int, default=99)
     p_run.add_argument("--ctx", type=int, default=4096)
     p_run.add_argument("-v", "--verbose", action="store_true", help="print each test result live")
