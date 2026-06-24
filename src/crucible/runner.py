@@ -18,8 +18,8 @@ import yaml
 
 from . import db
 from . import __version__
-from .client import chat
-from .graders import GradeResult, grade
+from .client import ChatResult, ToolCall, chat
+from .graders import GradeResult, grade, grade_tool_call
 from .server import llama_cpp_commit, llama_server
 from .retrieval import retrieve_context
 
@@ -118,6 +118,87 @@ def test_messages(test: dict, *, docs_dir: str | Path | None = None) -> list[dic
     return [{"role": "user", "content": test["prompt"]}]
 
 
+def _tool_call_id(call: ToolCall, index: int) -> str:
+    return call.id or f"call_{index}"
+
+
+def _assistant_tool_call_message(res: ChatResult) -> dict:
+    calls = []
+    for i, call in enumerate(res.tool_calls):
+        calls.append({
+            "id": _tool_call_id(call, i),
+            "type": "function",
+            "function": {"name": call.name, "arguments": call.raw_arguments},
+        })
+    return {"role": "assistant", "content": res.text, "tool_calls": calls}
+
+
+def _tool_result_messages(test: dict, calls: list[ToolCall]) -> list[dict]:
+    results = test.get("tool_results") or {}
+    out: list[dict] = []
+    for i, call in enumerate(calls):
+        if call.arguments is None:
+            raise ValueError(f"tool {call.name!r} arguments are not valid JSON")
+        if call.name not in results:
+            raise ValueError(f"no mocked result configured for tool {call.name!r}")
+        content = results[call.name]
+        if not isinstance(content, str):
+            content = json.dumps(content, sort_keys=True)
+        out.append({
+            "role": "tool",
+            "tool_call_id": _tool_call_id(call, i),
+            "name": call.name,
+            "content": content,
+        })
+    return out
+
+
+def _combine_counts(a: int | None, b: int | None) -> int | None:
+    if a is None and b is None:
+        return None
+    return (a or 0) + (b or 0)
+
+
+def _stored_tool_loop_response(first: ChatResult, final: ChatResult) -> str:
+    calls = [
+        {"id": _tool_call_id(c, i), "name": c.name, "arguments": c.raw_arguments}
+        for i, c in enumerate(first.tool_calls)
+    ]
+    return json.dumps({"tool_calls": calls, "final": final.text}, sort_keys=True)
+
+
+def _run_agent_tool_test(base_url: str, test: dict, *, docs_dir: str | Path | None = None) -> tuple[ChatResult, GradeResult]:
+    messages = test_messages(test, docs_dir=docs_dir)
+    first = chat(base_url, messages, tools=test.get("tools"))
+    call_grade = grade_tool_call(
+        {
+            "grader": "tool_call",
+            "expect_call": test.get("expect_call", True),
+            "expected_calls": test.get("expected_calls"),
+        },
+        first.text,
+        first.tool_calls,
+    )
+    if not call_grade.passed:
+        return first, call_grade
+    if test.get("expect_call") is False:
+        return first, call_grade
+    if not first.tool_calls:
+        return first, GradeResult(passed=False, detail="agent_tool test made no tool call")
+
+    tool_messages = _tool_result_messages(test, first.tool_calls)
+    final = chat(base_url, [*messages, _assistant_tool_call_message(first), *tool_messages])
+    final.prompt_tokens = _combine_counts(first.prompt_tokens, final.prompt_tokens)
+    final.completion_tokens = _combine_counts(first.completion_tokens, final.completion_tokens)
+    final.text = _stored_tool_loop_response(first, final)
+
+    final_answer = json.loads(final.text)["final"]
+    g = grade(test, final_answer, final.tool_calls)
+    if g.passed:
+        g.detail = f"tool loop ok; {g.detail}"
+    return final, g
+
+
 def run_suite(
     model_path: str | Path,
     *,
@@ -200,11 +281,15 @@ def run_suite(
                     continue
                 t0 = time.perf_counter()
                 try:
-                    res = chat(
-                        srv.base_url,
-                        test_messages(test, docs_dir=docs_dir),
-                        tools=test.get("tools"),
-                    )
+                    if test.get("agent_tool"):
+                        res, g = _run_agent_tool_test(srv.base_url, test, docs_dir=docs_dir)
+                    else:
+                        res = chat(
+                            srv.base_url,
+                            test_messages(test, docs_dir=docs_dir),
+                            tools=test.get("tools"),
+                        )
+                        g = None
                 except httpx.HTTPStatusError as e:
                     # The server answered but errored (e.g. its tool-call parser choked on
                     # the model's output). That's a finding about this model/quant, not a
@@ -241,23 +326,24 @@ def run_suite(
                         on_progress(category, test, rep, g)
                     continue
                 latency_ms = int((time.perf_counter() - t0) * 1000)
-                try:
-                    g = grade(test, res.text, res.tool_calls)
-                except Exception as e:
-                    g = GradeResult(
-                        passed=False,
-                        detail=f"grade error {type(e).__name__}: {str(e)[:120]}",
-                    )
-                    db.insert_result(
-                        conn, run_id=run_id, test_id=test["id"], category=category, rep=rep,
-                        response=res.text,
-                        passed=0, label=None, detail=g.detail, latency_ms=latency_ms,
-                        tok_per_sec=res.tokens_per_second, prompt_tokens=res.prompt_tokens,
-                        completion_tokens=res.completion_tokens,
-                    )
-                    if on_progress:
-                        on_progress(category, test, rep, g)
-                    continue
+                if g is None:
+                    try:
+                        g = grade(test, res.text, res.tool_calls)
+                    except Exception as e:
+                        g = GradeResult(
+                            passed=False,
+                            detail=f"grade error {type(e).__name__}: {str(e)[:120]}",
+                        )
+                        db.insert_result(
+                            conn, run_id=run_id, test_id=test["id"], category=category, rep=rep,
+                            response=res.text,
+                            passed=0, label=None, detail=g.detail, latency_ms=latency_ms,
+                            tok_per_sec=res.tokens_per_second, prompt_tokens=res.prompt_tokens,
+                            completion_tokens=res.completion_tokens,
+                        )
+                        if on_progress:
+                            on_progress(category, test, rep, g)
+                        continue
                 stored = res.text
                 if res.tool_calls:  # tool-call turns have empty text; store what was called
                     calls = [{"name": c.name, "arguments": c.raw_arguments} for c in res.tool_calls]

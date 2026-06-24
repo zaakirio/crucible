@@ -5,7 +5,7 @@ self-hostable models - capability, refusal behavior, tool-calling, RAG, and agen
 with first-class tracking of what local deployment choices actually cost.
 
 > Building in public. WIP. Crucible already covers capability, refusal, tool-calling, early
-> grounded QA/RAG, and multi-turn dialogue fixtures; deeper tool-using agent workflows are next.
+> grounded QA/RAG, multi-turn dialogue fixtures, and starter tool-using agent workflows.
 
 ## Why
 
@@ -74,7 +74,7 @@ Current coverage:
 - local GGUF execution through `llama-server`
 - deterministic grading and append-only SQLite storage
 - provenance hashes for model files, tests, docs, and Crucible version
-- refusal profiling, tool-calling, PPL, and charts
+- refusal profiling, tool-calling, tool-using agent loops, PPL, and charts
 - markdown/JSON evidence reports for stored runs
 - resumable runs plus a mock-server integration test
 - grounded QA / RAG-style fixtures via local retrieval over `docs/rag`
@@ -147,14 +147,20 @@ these stored runs.
 | `sorrybench` | [SORRY-Bench](https://huggingface.co/datasets/sorry-bench/sorry-bench-202503) (ICLR 2025) - refusal-of-unsafe, 1/category | `refusal` profile |
 | `toolcall_single/multiple/parallel` | [BFCL v4](https://github.com/ShishirPatil/gorilla/tree/main/berkeley-function-call-leaderboard) static categories (Apache 2.0) | `tool_call` (BFCL-AST style) |
 | `toolcall_irrelevance/relevance` | BFCL v4 Live - knowing when *not* to call | `tool_call` |
+| `agent_tool` | hand-authored tool-use loops with deterministic mocked tool results | final-answer graders |
 | `rag_grounded` | local retrieval over `docs/rag/` | `exact` |
 | `agent_dialogue` | hand-authored multi-turn conversation fixtures | `exact` |
 | `math`, `code`, `instruction`, `refusal` | hand-written starters | mixed |
 
-Tool calls are evaluated end-to-end as served: llama-server's own `--jinja` template parsing
+Tool calls are evaluated as served: llama-server's own `--jinja` template parsing
 produces the `tool_calls`, and grading checks function-name match, argument values against
 BFCL's allowed lists, and no-call behavior on irrelevant prompts. Invalid-JSON arguments are
 a recorded failure mode, not an error.
+
+`agent_tool` fixtures go one step further: Crucible sends the model's parsed tool call back as an
+assistant message, injects deterministic mocked tool results as `role=tool`, and grades the final
+assistant answer. This tests whether a local model can complete the practical tool-use loop, not
+just emit valid JSON.
 
 Refusal categories report a **profile** (complied / hedged / refused), not pass/fail - moving
 refusals to complies is the *point* of abliteration, so Crucible reports where each model lands.
@@ -166,5 +172,5 @@ not as generalized benchmark claims.
 ## Next
 
 - add a regression gate for CI or local preflight checks
-- add tool-using agent workflows and stateful tool-eval suites
+- expand stateful agent/tool workflows beyond the starter loops
 - expand model coverage and compare more quant / abliterated variants

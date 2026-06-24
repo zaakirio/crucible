@@ -147,6 +147,41 @@ class CoreTests(unittest.TestCase):
                 "      shortest_route:\n"
                 "      - true\n"
             )
+            (tests_dir / "agent_tool_mock.yaml").write_text(
+                "- id: agent-tool-001\n"
+                "  agent_tool: true\n"
+                "  prompt: How far is New York from Washington DC? Answer with the distance only.\n"
+                "  grader: exact\n"
+                "  expected: 226 miles\n"
+                "  tools:\n"
+                "  - type: function\n"
+                "    function:\n"
+                "      name: calc_distance\n"
+                "      description: Calculate the driving distance between two locations.\n"
+                "      parameters:\n"
+                "        type: object\n"
+                "        properties:\n"
+                "          start_loc:\n"
+                "            type: string\n"
+                "          end_loc:\n"
+                "            type: string\n"
+                "          shortest_route:\n"
+                "            type: boolean\n"
+                "        required:\n"
+                "        - start_loc\n"
+                "        - end_loc\n"
+                "  expected_calls:\n"
+                "  - calc_distance:\n"
+                "      start_loc:\n"
+                "      - New York\n"
+                "      end_loc:\n"
+                "      - Washington DC\n"
+                "      shortest_route:\n"
+                "      - true\n"
+                "  tool_results:\n"
+                "    calc_distance:\n"
+                "      distance_miles: 226\n"
+            )
             model = root / "model-Q4_K_M.gguf"
             model.write_text("dummy gguf")
             db_path = root / "results.db"
@@ -186,6 +221,16 @@ class CoreTests(unittest.TestCase):
                             return
                         length = int(self.headers.get("Content-Length", "0"))
                         body = json.loads(self.rfile.read(length) or b"{}")
+                        if body["messages"][-1]["role"] == "tool":
+                            tool_result = json.loads(body["messages"][-1]["content"])
+                            distance = tool_result["distance_miles"]
+                            message = {"role": "assistant", "content": f"{distance} miles"}
+                            self._send_json({
+                                "choices": [{"message": message}],
+                                "usage": {"prompt_tokens": 18, "completion_tokens": 3},
+                                "timings": {"predicted_per_second": 31.0},
+                            })
+                            return
                         prompt = body["messages"][-1]["content"].lower()
                         if body.get("tools") and "distance" in prompt:
                             tool_name = body["tools"][0]["function"]["name"]
@@ -236,6 +281,7 @@ class CoreTests(unittest.TestCase):
             conn = db.connect(db_path)
             try:
                 summary = {row["category"]: row for row in db.category_summary(conn, run_id)}
+                self.assertEqual(summary["agent_tool_mock"]["n_passed"], 1)
                 self.assertEqual(summary["math"]["n_passed"], 1)
                 self.assertEqual(summary["toolcall_mock"]["n_passed"], 1)
                 self.assertIsNotNone(db.get_run(conn, run_id)["finished_at"])
@@ -483,6 +529,84 @@ class CoreTests(unittest.TestCase):
             try:
                 summary = {row["category"]: row for row in db.category_summary(conn, run_id)}
                 self.assertEqual(summary["agent_dialogue"]["n_passed"], 1)
+            finally:
+                conn.close()
+
+    def test_agent_tool_fails_before_final_answer_on_wrong_tool_args(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            tests_dir = root / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "agent_tool.yaml").write_text(
+                "- id: agent-tool-001\n"
+                "  agent_tool: true\n"
+                "  prompt: How far is New York from Washington DC?\n"
+                "  grader: exact\n"
+                "  expected: 226 miles\n"
+                "  tools:\n"
+                "  - type: function\n"
+                "    function:\n"
+                "      name: calc_distance\n"
+                "      parameters:\n"
+                "        type: object\n"
+                "        properties:\n"
+                "          start_loc:\n"
+                "            type: string\n"
+                "          end_loc:\n"
+                "            type: string\n"
+                "        required:\n"
+                "        - start_loc\n"
+                "        - end_loc\n"
+                "  expected_calls:\n"
+                "  - calc_distance:\n"
+                "      start_loc:\n"
+                "      - New York\n"
+                "      end_loc:\n"
+                "      - Washington DC\n"
+                "  tool_results:\n"
+                "    calc_distance:\n"
+                "      distance_miles: 226\n"
+            )
+            model = root / "model-Q4_K_M.gguf"
+            model.write_text("dummy gguf")
+            db_path = root / "results.db"
+            calls = 0
+
+            @contextmanager
+            def fake_server(*_args, **_kwargs):
+                yield SimpleNamespace(base_url="http://127.0.0.1:1", load_time_s=0.0)
+
+            def fake_chat(*_args, **_kwargs):
+                nonlocal calls
+                calls += 1
+                return ChatResult(
+                    text="",
+                    tokens_per_second=1.0,
+                    prompt_tokens=1,
+                    completion_tokens=1,
+                    raw={},
+                    tool_calls=[
+                        ToolCall(
+                            name="calc_distance",
+                            arguments={"start_loc": "Boston", "end_loc": "Washington DC"},
+                            raw_arguments='{"start_loc":"Boston","end_loc":"Washington DC"}',
+                            id="call_1",
+                        )
+                    ],
+                )
+
+            with (
+                patch("crucible.runner.llama_server", fake_server),
+                patch("crucible.runner.chat", fake_chat),
+            ):
+                run_id = run_suite(model, tests_dir=tests_dir, db_path=db_path, hardware="test-box")
+
+            conn = db.connect(db_path)
+            try:
+                summary = {row["category"]: row for row in db.category_summary(conn, run_id)}
+                self.assertEqual(calls, 1)
+                self.assertEqual(summary["agent_tool"]["n_passed"], 0)
+                self.assertEqual(summary["agent_tool"]["n_graded"], 1)
             finally:
                 conn.close()
 

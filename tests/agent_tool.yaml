@@ -1,0 +1,93 @@
+# Tool-using agent workflow starter suite.
+#
+# Unlike `toolcall_*`, these fixtures do not stop at "did the model emit a valid call?".
+# The harness feeds a deterministic mocked tool result back to the served model and grades
+# the final answer. This tests whether tool use survives the full loop.
+- id: agent-tool-001
+  agent_tool: true
+  prompt: How far is New York from Washington DC by the mocked route? Answer with the distance only.
+  grader: exact
+  expected: 226 miles
+  tools:
+  - type: function
+    function:
+      name: calc_distance
+      description: Calculate the driving distance between two locations.
+      parameters:
+        type: object
+        properties:
+          start_loc:
+            type: string
+          end_loc:
+            type: string
+          shortest_route:
+            type: boolean
+        required:
+        - start_loc
+        - end_loc
+  expected_calls:
+  - calc_distance:
+      start_loc:
+      - New York
+      end_loc:
+      - Washington DC
+      shortest_route:
+      - true
+  tool_results:
+    calc_distance:
+      distance_miles: 226
+      route: mocked shortest route
+- id: agent-tool-002
+  agent_tool: true
+  prompt: What color is the sky on a clear day? Answer with one word.
+  grader: tool_call
+  expect_call: false
+  tools:
+  - type: function
+    function:
+      name: calc_distance
+      description: Calculate the driving distance between two locations.
+      parameters:
+        type: object
+        properties:
+          start_loc:
+            type: string
+          end_loc:
+            type: string
+        required:
+        - start_loc
+        - end_loc
+  tool_results:
+    calc_distance:
+      distance_miles: 0
+- id: agent-tool-003
+  agent_tool: true
+  prompt: Use the invoice tool for subtotal 20 and tax rate 0.08. Answer with the final total only.
+  grader: exact
+  expected: $21.60
+  tools:
+  - type: function
+    function:
+      name: invoice_total
+      description: Calculate an invoice total from a subtotal and tax rate.
+      parameters:
+        type: object
+        properties:
+          subtotal:
+            type: number
+          tax_rate:
+            type: number
+        required:
+        - subtotal
+        - tax_rate
+  expected_calls:
+  - invoice_total:
+      subtotal:
+      - 20
+      tax_rate:
+      - 0.08
+  tool_results:
+    invoice_total:
+      subtotal: 20
+      tax_rate: 0.08
+      total: 21.6

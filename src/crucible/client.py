@@ -17,6 +17,7 @@ class ToolCall:
     name: str
     arguments: dict | None  # parsed JSON args, or None if the model emitted invalid JSON
     raw_arguments: str      # exactly what the server returned, for grading detail
+    id: str | None = None   # OpenAI tool_call id, needed when sending tool results back
 
 
 @dataclass
@@ -76,7 +77,14 @@ def chat(
                 parsed = None
         except json.JSONDecodeError:
             parsed = None  # invalid-JSON arguments are a grading outcome, not a crash
-        calls.append(ToolCall(name=fn.get("name") or "", arguments=parsed, raw_arguments=raw_args))
+        calls.append(
+            ToolCall(
+                name=fn.get("name") or "",
+                arguments=parsed,
+                raw_arguments=raw_args,
+                id=tc.get("id"),
+            )
+        )
 
     return ChatResult(
         text=text,
