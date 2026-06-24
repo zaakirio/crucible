@@ -15,7 +15,7 @@ from unittest.mock import patch
 from crucible import db
 from crucible.charts import merged_stats
 from crucible.cli import BANNER, cmd_runs
-from crucible.client import ChatResult, ToolCall
+from crucible.client import ChatResult, ServerError, ToolCall
 from crucible.config import apply_config_defaults, load_config
 from crucible.doctor import DoctorCheck, render_doctor
 from crucible.export import export_rows, render_jsonl
@@ -23,8 +23,9 @@ from crucible.gate import evaluate_gate, render_gate
 from crucible.graders import grade_abstain_if_missing, grade_grounded_exact, grade_must_cite, grade_refusal, grade_tool_call
 from crucible.model_card import render_model_card
 from crucible.report import build_run_report, render_json, render_markdown
-from crucible.runner import parse_model_meta, run_suite
+from crucible.runner import RunAborted, parse_model_meta, run_suite
 from crucible.retrieval import retrieve_context
+from crucible.server import memory_preflight_message
 
 
 class CoreTests(unittest.TestCase):
@@ -1176,6 +1177,121 @@ class CoreTests(unittest.TestCase):
             with patch("sys.stdout", buf):
                 self.assertEqual(cmd_runs(Namespace(db=str(db_path), no_banner=True)), 0)
             self.assertNotIn(BANNER.strip().splitlines()[0], buf.getvalue())
+
+
+    def test_chat_raises_typed_server_error_carrying_the_body(self) -> None:
+        from crucible import client
+
+        fake = SimpleNamespace(status_code=500, text='{"error":{"message":"Compute error."}}')
+        with patch("crucible.client.httpx.post", lambda *a, **k: fake):
+            with self.assertRaises(ServerError) as ctx:
+                client.chat("http://127.0.0.1:1", [{"role": "user", "content": "hi"}])
+        self.assertEqual(ctx.exception.status_code, 500)
+        self.assertEqual(ctx.exception.body, '{"error":{"message":"Compute error."}}')
+        self.assertIn("Compute error.", str(ctx.exception))  # the human message, not raw JSON
+
+    def test_memory_preflight_message_flags_insufficient_memory(self) -> None:
+        gb = 1_000_000_000
+        self.assertIsNone(memory_preflight_message("m.gguf", 7 * gb, 20 * gb, []))  # fits
+        msg = memory_preflight_message("m.gguf", 7 * gb, 4 * gb, [4242])  # does not fit
+        self.assertIsNotNone(msg)
+        self.assertIn("kill 4242", msg)  # names the stray server to stop
+        self.assertIn("7.2 GB", msg)  # 7e9 bytes * 1.1 headroom, shown in GiB
+        self.assertIsNone(memory_preflight_message("dummy.gguf", 100, 1, [1]))  # tiny fixture skipped
+        self.assertIsNone(memory_preflight_message("m.gguf", 7 * gb, None, []))  # unknown mem skipped
+
+    def test_preflight_raises_before_load_when_model_cannot_fit(self) -> None:
+        from crucible import server
+
+        with tempfile.TemporaryDirectory() as td:
+            big = Path(td) / "big-Q4_K_M.gguf"
+            with open(big, "wb") as fh:
+                fh.truncate(300 * 1024 * 1024)  # sparse, above the preflight floor, no real disk use
+            with (
+                patch("crucible.server.available_memory_bytes", lambda: 1_000_000),
+                patch("crucible.server.running_llama_servers", lambda: [999]),
+            ):
+                with self.assertRaises(server.PreflightError) as ctx:
+                    server._preflight(big)
+            self.assertIn("kill 999", str(ctx.exception))
+
+            with (
+                patch.dict(os.environ, {"CRUCIBLE_SKIP_PREFLIGHT": "1"}),
+                patch("crucible.server.available_memory_bytes", lambda: 1_000_000),
+                patch("crucible.server.running_llama_servers", lambda: [999]),
+            ):
+                server._preflight(big)  # override env: must not raise
+
+    def test_run_records_server_error_and_keeps_going(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            tests_dir = root / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "math.yaml").write_text(
+                "- id: math-001\n  prompt: What is 6 * 7?\n  grader: numeric\n  expected: 42\n"
+            )
+            model = root / "model-Q4_K_M.gguf"
+            model.write_text("dummy gguf")
+            db_path = root / "results.db"
+
+            @contextmanager
+            def fake_server(*_args, **_kwargs):  # no proc attribute -> treated as alive
+                yield SimpleNamespace(base_url="http://127.0.0.1:1", load_time_s=0.0)
+
+            def boom(*_args, **_kwargs):
+                raise ServerError(500, '{"error":{"message":"Compute error."}}')
+
+            with (
+                patch("crucible.runner.llama_server", fake_server),
+                patch("crucible.runner.chat", boom),
+            ):
+                run_id = run_suite(model, tests_dir=tests_dir, db_path=db_path, hardware="test-box")
+
+            conn = db.connect(db_path)
+            try:
+                self.assertIsNotNone(db.get_run(conn, run_id)["finished_at"])  # one error != abort
+                summary = {r["category"]: r for r in db.category_summary(conn, run_id)}
+                self.assertEqual(summary["math"]["n_graded"], 1)
+                self.assertEqual(summary["math"]["n_passed"], 0)
+            finally:
+                conn.close()
+
+    def test_run_aborts_when_server_dies_midrun(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            tests_dir = root / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "math.yaml").write_text(
+                "- id: math-001\n  prompt: What is 6 * 7?\n  grader: numeric\n  expected: 42\n"
+                "- id: math-002\n  prompt: What is 2 + 2?\n  grader: numeric\n  expected: 4\n"
+            )
+            model = root / "model-Q4_K_M.gguf"
+            model.write_text("dummy gguf")
+            db_path = root / "results.db"
+
+            dead_proc = SimpleNamespace(poll=lambda: 1, returncode=1)
+
+            @contextmanager
+            def fake_server(*_args, **_kwargs):
+                yield SimpleNamespace(base_url="http://127.0.0.1:1", load_time_s=0.0, proc=dead_proc)
+
+            def boom(*_args, **_kwargs):
+                raise ServerError(500, '{"error":{"message":"Compute error."}}')
+
+            with (
+                patch("crucible.runner.llama_server", fake_server),
+                patch("crucible.runner.chat", boom),
+            ):
+                with self.assertRaises(RunAborted):
+                    run_suite(model, tests_dir=tests_dir, db_path=db_path, hardware="test-box")
+
+            conn = db.connect(db_path)
+            try:
+                runs = db.list_runs(conn)
+                self.assertEqual(len(runs), 1)
+                self.assertIsNone(runs[0]["finished_at"])  # left unfinished -> resumable
+            finally:
+                conn.close()
 
 
 if __name__ == "__main__":

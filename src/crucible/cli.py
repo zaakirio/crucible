@@ -9,6 +9,7 @@ Commands:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -555,7 +556,19 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as e:
         print(str(e), file=sys.stderr)
         return 1
-    return args.func(args)
+    try:
+        return args.func(args)
+    except KeyboardInterrupt:
+        print("\ninterrupted.", file=sys.stderr)
+        return 130
+    except Exception as e:
+        # Operational failures (OOM preflight, server down, missing model, aborted run)
+        # should read as one clean line, not a Python traceback. Set CRUCIBLE_DEBUG=1 for
+        # the full trace when debugging Crucible itself.
+        if os.environ.get("CRUCIBLE_DEBUG"):
+            raise
+        print(f"error: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

@@ -12,6 +12,28 @@ from dataclasses import dataclass, field
 import httpx
 
 
+class ServerError(RuntimeError):
+    """llama-server returned an HTTP error. Carries the status and decoded body so callers
+    can record it (per-test failure in a run) or report it cleanly (no raw traceback)."""
+
+    def __init__(self, status_code: int, body: str):
+        self.status_code = status_code
+        self.body = body
+        super().__init__(f"llama-server returned HTTP {status_code}: {_error_summary(body)}")
+
+
+def _error_summary(body: str) -> str:
+    """Pull the human message out of llama.cpp's {'error': {'message': ...}} envelope."""
+    try:
+        data = json.loads(body)
+        msg = (data.get("error") or {}).get("message") if isinstance(data, dict) else None
+        if msg:
+            return str(msg)
+    except (json.JSONDecodeError, AttributeError):
+        pass
+    return (body or "").strip()[:200] or "(no body)"
+
+
 @dataclass
 class ToolCall:
     name: str
@@ -59,7 +81,8 @@ def chat(
     if tools:
         payload["tools"] = tools
     r = httpx.post(f"{base_url}/v1/chat/completions", json=payload, timeout=timeout_s)
-    r.raise_for_status()
+    if r.status_code >= 400:
+        raise ServerError(r.status_code, r.text)
     data = r.json()
 
     message = data["choices"][0]["message"]

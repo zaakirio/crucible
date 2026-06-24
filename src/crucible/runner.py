@@ -6,6 +6,7 @@ noise check), grades the response, and appends rows to SQLite.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import re
@@ -13,15 +14,44 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import httpx
 import yaml
 
 from . import db
 from . import __version__
-from .client import ChatResult, ToolCall, chat
+from .client import ChatResult, ServerError, ToolCall, chat
 from .graders import GradeResult, grade, grade_tool_call
 from .server import llama_cpp_commit, llama_server
 from .retrieval import retrieve_context
+
+# Abort a run after this many back-to-back transport/server errors: once llama-server's
+# Metal backend OOMs it stays wedged, so grinding out hundreds of identical error rows
+# helps nobody. The partial run stays resumable.
+_MAX_CONSECUTIVE_ERRORS = 8
+
+
+class RunAborted(RuntimeError):
+    """A run was stopped because the server became unusable (died / repeated errors)."""
+
+
+def _server_dead(srv) -> bool:
+    proc = getattr(srv, "proc", None)
+    return proc is not None and proc.poll() is not None
+
+
+def _abort_check(srv, errors_in_a_row: int) -> None:
+    """Stop the run if the server has died or keeps erroring. Raises RunAborted."""
+    if _server_dead(srv):
+        code = getattr(getattr(srv, "proc", None), "returncode", None)
+        raise RunAborted(
+            f"llama-server exited mid-run (exit code {code}). The usual cause is GPU "
+            "out-of-memory. Free memory or lower --ngl/--ctx, then re-run with --resume "
+            "to continue this run."
+        )
+    if errors_in_a_row >= _MAX_CONSECUTIVE_ERRORS:
+        raise RunAborted(
+            f"{errors_in_a_row} consecutive server errors - aborting. Check llama-server, "
+            "then re-run with --resume to continue this run."
+        )
 
 _QUANT_RE = re.compile(
     r"(IQ\d+_[A-Z]+|Q\d+_K_[SML]|Q\d+_K|Q\d+_\d+|BF16|F16|F32)", re.IGNORECASE
@@ -223,7 +253,6 @@ def run_suite(
         raise SystemExit(f"No tests found under {tests_dir}/")
 
     name, quant, lineage = parse_model_meta(model_path)
-    conn = db.connect(db_path)
     llama_commit = llama_cpp_commit()
     model_sha256 = _file_sha256(model_path)
     tests_sha256 = _tree_sha256(tests_dir)
@@ -232,7 +261,12 @@ def run_suite(
 
     # This is the production execution path: swap in a temporary mock server for tests,
     # or let this context manager spawn a real llama.cpp `llama-server` binary for local runs.
-    with llama_server(model_path, ngl=ngl, ctx=ctx) as srv:
+    # The DB connection rides the same `with` so it is closed on every exit, including a
+    # mid-run abort (RunAborted) or a failed preflight.
+    with (
+        llama_server(model_path, ngl=ngl, ctx=ctx) as srv,
+        contextlib.closing(db.connect(db_path)) as conn,
+    ):
         run = (
             db.find_resumeable_run(
                 conn,
@@ -275,6 +309,7 @@ def run_suite(
                 crucible_version=__version__,
             )
         seen = db.result_keys(conn, run_id)
+        errors_in_a_row = 0
         for category, test in tests:
             for rep in range(repeat):
                 if (test["id"], rep) in seen:
@@ -292,25 +327,27 @@ def run_suite(
                             tools=test.get("tools"),
                         )
                         g = None
-                except httpx.HTTPStatusError as e:
-                    # The server answered but errored (e.g. its tool-call parser choked on
-                    # the model's output). That's a finding about this model/quant, not a
-                    # harness crash: record it as a failure and keep going.
+                except ServerError as e:
+                    # The server answered but errored: its tool-call parser choking on the
+                    # model's output is a finding about this model/quant - record it and keep
+                    # going. A wedged/dead server (e.g. Metal OOM) is caught by _abort_check.
                     latency_ms = int((time.perf_counter() - t0) * 1000)
-                    body = e.response.text[:200]
-                    g = grade_error = GradeResult(
+                    body = e.body[:200]
+                    g = GradeResult(
                         passed=None if test.get("grader") == "refusal" else False,
-                        detail=f"server returned {e.response.status_code}: {body[:120]}",
+                        detail=f"server returned {e.status_code}: {body[:120]}",
                     )
                     db.insert_result(
                         conn, run_id=run_id, test_id=test["id"], category=category, rep=rep,
-                        response=f"<server error {e.response.status_code}> {body}",
-                        passed=None if grade_error.passed is None else int(grade_error.passed),
-                        label=None, detail=grade_error.detail, latency_ms=latency_ms,
+                        response=f"<server error {e.status_code}> {body}",
+                        passed=None if g.passed is None else int(g.passed),
+                        label=None, detail=g.detail, latency_ms=latency_ms,
                         tok_per_sec=None, prompt_tokens=None, completion_tokens=None,
                     )
                     if on_progress:
                         on_progress(category, test, rep, g)
+                    errors_in_a_row += 1
+                    _abort_check(srv, errors_in_a_row)
                     continue
                 except Exception as e:
                     latency_ms = int((time.perf_counter() - t0) * 1000)
@@ -326,7 +363,10 @@ def run_suite(
                     )
                     if on_progress:
                         on_progress(category, test, rep, g)
+                    errors_in_a_row += 1
+                    _abort_check(srv, errors_in_a_row)
                     continue
+                errors_in_a_row = 0
                 latency_ms = int((time.perf_counter() - t0) * 1000)
                 if g is None:
                     try:
@@ -370,5 +410,4 @@ def run_suite(
                     on_progress(category, test, rep, g)
         db.finish_run(conn, run_id, datetime.now(timezone.utc).isoformat(timespec="seconds"))
 
-    conn.close()
     return run_id
