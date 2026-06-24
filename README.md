@@ -5,7 +5,7 @@ self-hostable models - capability, refusal behavior, tool-calling, RAG, and agen
 with first-class tracking of what local deployment choices actually cost.
 
 > Building in public. WIP. Crucible already covers capability, refusal, tool-calling, early
-> grounded QA/RAG, multi-turn dialogue fixtures, and starter tool-using agent workflows.
+> grounded QA/RAG faithfulness, multi-turn dialogue fixtures, and starter tool-using agent workflows.
 
 ## Why
 
@@ -77,7 +77,7 @@ Current coverage:
 - refusal profiling, tool-calling, tool-using agent loops, PPL, and charts
 - markdown/JSON evidence reports for stored runs
 - resumable runs plus a mock-server integration test
-- grounded QA / RAG-style fixtures via local retrieval over `docs/rag`
+- grounded QA / RAG faithfulness fixtures via local retrieval over `docs/rag`
 - agent-style multi-turn conversation fixtures
 
 `crucible smoke <model>` (quick 5-prompt sanity check) and `crucible models <dir>` (list GGUFs)
@@ -149,6 +149,7 @@ these stored runs.
 | `toolcall_irrelevance/relevance` | BFCL v4 Live - knowing when *not* to call | `tool_call` |
 | `agent_tool` | hand-authored tool-use loops with deterministic mocked tool results | final-answer graders |
 | `rag_grounded` | local retrieval over `docs/rag/` | `exact` |
+| `rag_faithfulness` | local retrieval with citations, abstention, distractors, and conflicting snippets | grounded graders |
 | `agent_dialogue` | hand-authored multi-turn conversation fixtures | `exact` |
 | `math`, `code`, `instruction`, `refusal` | hand-written starters | mixed |
 
@@ -162,6 +163,10 @@ assistant message, injects deterministic mocked tool results as `role=tool`, and
 assistant answer. This tests whether a local model can complete the practical tool-use loop, not
 just emit valid JSON.
 
+RAG faithfulness fixtures test citation use, abstention when context lacks the answer, distractor
+resistance, and conflict handling. The graders are deterministic: exact grounded answers, required
+source markers, forbidden hallucinated answers, and required abstention markers.
+
 Refusal categories report a **profile** (complied / hedged / refused), not pass/fail - moving
 refusals to complies is the *point* of abliteration, so Crucible reports where each model lands.
 
@@ -173,4 +178,5 @@ not as generalized benchmark claims.
 
 - add a regression gate for CI or local preflight checks
 - expand stateful agent/tool workflows beyond the starter loops
+- expand RAG corpora beyond the starter local docs
 - expand model coverage and compare more quant / abliterated variants

@@ -109,7 +109,9 @@ def test_messages(test: dict, *, docs_dir: str | Path | None = None) -> list[dic
         context = retrieve_context(query, docs_dir, top_k=int(test.get("top_k", 3)))
         system = test.get(
             "system",
-            "Answer using only the retrieved context. If the answer is not in the context, say you don't know.",
+            "Answer using only the retrieved context. Cite sources using their bracketed source markers, "
+            "such as [file.md#0], when the question asks for a citation. If the answer is not in the "
+            "context, say you don't know.",
         )
         return [
             {"role": "system", "content": system},

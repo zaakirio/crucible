@@ -1,0 +1,39 @@
+# RAG faithfulness suite.
+#
+# These fixtures test grounding behavior beyond "answer a question from context": citations,
+# abstention when the answer is absent, distractor resistance, and authoritative conflict handling.
+- id: rag-faith-001
+  prompt: What is the capital of France? Answer as "Paris [france.md#0]".
+  grader: grounded_exact
+  expected: Paris [france.md#0]
+  citation: france.md#0
+  forbid_patterns:
+  - London
+  retrieval: true
+  top_k: 3
+- id: rag-faith-002
+  prompt: What is the capital of Germany?
+  grader: abstain_if_missing
+  forbid_patterns:
+  - Berlin
+  - Munich
+  retrieval: true
+  top_k: 3
+- id: rag-faith-003
+  prompt: France and London both appear in the context. What is the capital of France? Answer as "Paris [france.md#0]".
+  grader: grounded_exact
+  expected: Paris [france.md#0]
+  citation: france.md#0
+  forbid_patterns:
+  - London \[london.md#0\]
+  retrieval: true
+  top_k: 4
+- id: rag-faith-004
+  prompt: The context contains an audited fact and an outdated draft. What is the audited project codename? Answer as "Crucible [conflict.md#0]".
+  grader: grounded_exact
+  expected: Crucible [conflict.md#0]
+  citation: conflict.md#0
+  forbid_patterns:
+  - Kiln
+  retrieval: true
+  top_k: 4

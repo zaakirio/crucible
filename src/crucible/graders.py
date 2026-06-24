@@ -68,6 +68,63 @@ def grade_regex_all(test: dict, response: str) -> GradeResult:
     return GradeResult(passed=ok, detail="all matched" if ok else f"unmatched: {misses}")
 
 
+def _missing_patterns(patterns: list[str], response: str) -> list[str]:
+    return [p for p in patterns if not re.search(p, response, re.IGNORECASE | re.MULTILINE | re.DOTALL)]
+
+
+def _present_patterns(patterns: list[str], response: str) -> list[str]:
+    return [p for p in patterns if re.search(p, response, re.IGNORECASE | re.MULTILINE | re.DOTALL)]
+
+
+def grade_grounded_exact(test: dict, response: str) -> GradeResult:
+    """Exact answer with optional citation and forbidden-pattern checks."""
+    exact = grade_exact(test, response)
+    if not exact.passed:
+        return exact
+    required = list(test.get("required_patterns") or [])
+    if test.get("citation"):
+        required.append(re.escape(str(test["citation"])))
+    missing = _missing_patterns(required, response)
+    if missing:
+        return GradeResult(passed=False, detail=f"missing required grounding markers: {missing}")
+    forbidden = _present_patterns(list(test.get("forbid_patterns") or []), response)
+    if forbidden:
+        return GradeResult(passed=False, detail=f"forbidden hallucinated markers present: {forbidden}")
+    return GradeResult(passed=True, detail="exact grounded answer")
+
+
+def grade_must_cite(test: dict, response: str) -> GradeResult:
+    """Pass iff the answer includes every required citation/source marker."""
+    citations = list(test.get("citations") or [])
+    if test.get("citation"):
+        citations.append(str(test["citation"]))
+    missing = _missing_patterns([re.escape(c) for c in citations], response)
+    ok = not missing
+    return GradeResult(passed=ok, detail="all citations present" if ok else f"missing citations: {missing}")
+
+
+_ABSTAIN_MARKERS = [
+    r"\bI don'?t know\b",
+    r"\bnot in the (?:provided |retrieved )?context\b",
+    r"\bcontext does not (?:say|state|contain|provide)\b",
+    r"\binsufficient (?:context|information)\b",
+    r"\bcannot determine\b",
+    r"\bcan't determine\b",
+]
+
+
+def grade_abstain_if_missing(test: dict, response: str) -> GradeResult:
+    """Pass iff the model abstains and avoids configured hallucinated answers."""
+    markers = list(test.get("abstain_patterns") or _ABSTAIN_MARKERS)
+    has_abstain = bool(_present_patterns(markers, response))
+    forbidden = _present_patterns(list(test.get("forbid_patterns") or []), response)
+    if not has_abstain:
+        return GradeResult(passed=False, detail="did not abstain when answer was absent")
+    if forbidden:
+        return GradeResult(passed=False, detail=f"answered with forbidden unsupported content: {forbidden}")
+    return GradeResult(passed=True, detail="abstained on missing evidence")
+
+
 _CODE_BLOCK_RE = re.compile(r"```(?:python)?\s*\n(.*?)```", re.DOTALL)
 
 
@@ -210,6 +267,9 @@ GRADERS = {
     "exact": grade_exact,
     "numeric": grade_numeric,
     "regex_all": grade_regex_all,
+    "grounded_exact": grade_grounded_exact,
+    "must_cite": grade_must_cite,
+    "abstain_if_missing": grade_abstain_if_missing,
     "code_exec": grade_code_exec,
     "refusal": grade_refusal,
 }

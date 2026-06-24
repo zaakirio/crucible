@@ -13,7 +13,7 @@ from unittest.mock import patch
 from crucible import db
 from crucible.charts import merged_stats
 from crucible.client import ChatResult, ToolCall
-from crucible.graders import grade_refusal, grade_tool_call
+from crucible.graders import grade_abstain_if_missing, grade_grounded_exact, grade_must_cite, grade_refusal, grade_tool_call
 from crucible.report import build_run_report, render_json, render_markdown
 from crucible.runner import parse_model_meta, run_suite
 from crucible.retrieval import retrieve_context
@@ -54,6 +54,24 @@ class CoreTests(unittest.TestCase):
         }
         self.assertTrue(grade_tool_call(test, "", tool_calls).passed)
         self.assertTrue(grade_tool_call({"grader": "tool_call", "expect_call": False}, "", []).passed)
+
+    def test_rag_faithfulness_graders_check_citations_and_abstention(self) -> None:
+        grounded = {
+            "expected": "Paris [france.md#0]",
+            "citation": "france.md#0",
+            "forbid_patterns": ["London"],
+        }
+        self.assertTrue(grade_grounded_exact(grounded, "Paris [france.md#0]").passed)
+        self.assertFalse(grade_grounded_exact(grounded, "Paris").passed)
+        self.assertTrue(grade_must_cite({"citations": ["france.md#0"]}, "Paris [france.md#0]").passed)
+        self.assertFalse(grade_must_cite({"citations": ["france.md#0"]}, "Paris").passed)
+        self.assertTrue(
+            grade_abstain_if_missing(
+                {"forbid_patterns": ["Berlin"]},
+                "I don't know. The retrieved context does not contain that answer.",
+            ).passed
+        )
+        self.assertFalse(grade_abstain_if_missing({"forbid_patterns": ["Berlin"]}, "Berlin").passed)
 
     def test_run_suite_can_resume_an_unfinished_run(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -474,6 +492,73 @@ class CoreTests(unittest.TestCase):
             try:
                 summary = {row["category"]: row for row in db.category_summary(conn, run_id)}
                 self.assertEqual(summary["rag_grounded"]["n_passed"], 1)
+            finally:
+                conn.close()
+
+    def test_run_suite_supports_rag_faithfulness_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            tests_dir = root / "tests"
+            docs_dir = root / "docs"
+            tests_dir.mkdir()
+            docs_dir.mkdir()
+            (docs_dir / "france.md").write_text("The capital of France is Paris.\n")
+            (docs_dir / "london.md").write_text("London is the capital of the United Kingdom.\n")
+            (tests_dir / "rag_faithfulness.yaml").write_text(
+                "- id: rag-faith-001\n"
+                "  prompt: What is the capital of France? Answer as \"Paris [france.md#0]\".\n"
+                "  grader: grounded_exact\n"
+                "  expected: Paris [france.md#0]\n"
+                "  citation: france.md#0\n"
+                "  forbid_patterns:\n"
+                "  - London\n"
+                "  retrieval: true\n"
+                "  top_k: 2\n"
+                "- id: rag-faith-002\n"
+                "  prompt: What is the capital of Germany?\n"
+                "  grader: abstain_if_missing\n"
+                "  forbid_patterns:\n"
+                "  - Berlin\n"
+                "  retrieval: true\n"
+                "  top_k: 2\n"
+            )
+            model = root / "model-Q4_K_M.gguf"
+            model.write_text("dummy gguf")
+            db_path = root / "results.db"
+
+            @contextmanager
+            def fake_server(*_args, **_kwargs):
+                yield SimpleNamespace(base_url="http://127.0.0.1:1", load_time_s=0.0)
+
+            def fake_chat(base_url, messages, *, tools=None, temperature=0.0, seed=0, max_tokens=512, timeout_s=300.0):
+                self.assertEqual(base_url, "http://127.0.0.1:1")
+                self.assertIn("retrieved context", messages[1]["content"].lower())
+                self.assertRegex(messages[1]["content"], r"\[[a-z]+\.md#0\]")
+                if "Germany" in messages[1]["content"]:
+                    text = "I don't know. The retrieved context does not contain that answer."
+                else:
+                    self.assertIn("france.md#0", messages[1]["content"])
+                    text = "Paris [france.md#0]"
+                return ChatResult(
+                    text=text,
+                    tokens_per_second=1.0,
+                    prompt_tokens=1,
+                    completion_tokens=1,
+                    raw={},
+                    tool_calls=[],
+                )
+
+            with (
+                patch("crucible.runner.llama_server", fake_server),
+                patch("crucible.runner.chat", fake_chat),
+            ):
+                run_id = run_suite(model, tests_dir=tests_dir, db_path=db_path, hardware="test-box", docs_dir=docs_dir)
+
+            conn = db.connect(db_path)
+            try:
+                summary = {row["category"]: row for row in db.category_summary(conn, run_id)}
+                self.assertEqual(summary["rag_faithfulness"]["n_passed"], 2)
+                self.assertEqual(summary["rag_faithfulness"]["n_graded"], 2)
             finally:
                 conn.close()
 
