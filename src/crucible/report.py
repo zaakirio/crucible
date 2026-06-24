@@ -56,6 +56,7 @@ def build_run_report(conn: sqlite3.Connection, run_id: int, *, failure_limit: in
         "failures": failures,
         "caveats": [
             "Results are local to the recorded model file, hardware, llama.cpp commit, and test-suite hash.",
+            "Raw per-result artifacts can be exported with `crucible export <run_id>`.",
             "Refusal categories are profiles, not pass/fail capability scores.",
             "Perplexity values are comparable only when measured with the same dataset and chunk count.",
             "Unfinished runs should not be used for published comparisons.",

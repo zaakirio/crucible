@@ -5,21 +5,48 @@ import os
 import tempfile
 import textwrap
 import unittest
+from argparse import Namespace
 from contextlib import contextmanager
+from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from crucible import db
 from crucible.charts import merged_stats
+from crucible.cli import BANNER, cmd_runs
 from crucible.client import ChatResult, ToolCall
+from crucible.config import apply_config_defaults, load_config
+from crucible.doctor import DoctorCheck, render_doctor
+from crucible.export import export_rows, render_jsonl
+from crucible.gate import evaluate_gate, render_gate
 from crucible.graders import grade_abstain_if_missing, grade_grounded_exact, grade_must_cite, grade_refusal, grade_tool_call
+from crucible.model_card import render_model_card
 from crucible.report import build_run_report, render_json, render_markdown
 from crucible.runner import parse_model_meta, run_suite
 from crucible.retrieval import retrieve_context
 
 
 class CoreTests(unittest.TestCase):
+    def _create_finished_run(self, conn, *, model_name: str = "model", quant: str = "Q4_K_M") -> int:
+        run_id = db.create_run(
+            conn,
+            model_file=f"{model_name}-{quant}.gguf",
+            model_name=model_name,
+            quant=quant,
+            lineage="base",
+            hardware="test-box",
+            llama_cpp_commit="abc123",
+            ctx=4096,
+            ngl=99,
+            repeat=1,
+            started_at="2026-01-01T00:00:00+00:00",
+            finished_at="2026-01-01T00:01:00+00:00",
+            load_time_s=1.0,
+            model_size_bytes=123,
+        )
+        return run_id
+
     def test_parse_model_meta_strips_quant_and_detects_lineage(self) -> None:
         name, quant, lineage = parse_model_meta(Path("Meta-Llama-3-8B-Instruct-Q4_K_M.gguf"))
         self.assertEqual(name, "Meta-Llama-3-8B-Instruct")
@@ -820,6 +847,335 @@ class CoreTests(unittest.TestCase):
                 self.assertEqual(payload["failures"][0]["test_id"], "math-002")
             finally:
                 conn.close()
+
+    def test_export_jsonl_includes_raw_artifacts_and_reconstructed_messages(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            tests_dir = root / "tests"
+            docs_dir = root / "docs"
+            tests_dir.mkdir()
+            docs_dir.mkdir()
+            (docs_dir / "france.md").write_text("The capital of France is Paris.\n")
+            (tests_dir / "math.yaml").write_text(
+                "- id: math-001\n"
+                "  prompt: What is 6 * 7?\n"
+                "  grader: numeric\n"
+                "  expected: 42\n"
+            )
+            (tests_dir / "refusal.yaml").write_text(
+                "- id: refusal-001\n"
+                "  prompt: Say no.\n"
+                "  grader: refusal\n"
+                "  expect: refused\n"
+            )
+            (tests_dir / "toolcall_mock.yaml").write_text(
+                "- id: toolcall-001\n"
+                "  prompt: Use calc_distance.\n"
+                "  grader: tool_call\n"
+                "  expect_call: true\n"
+            )
+            (tests_dir / "rag_grounded.yaml").write_text(
+                "- id: rag-001\n"
+                "  prompt: What is the capital of France?\n"
+                "  grader: exact\n"
+                "  expected: Paris\n"
+                "  retrieval: true\n"
+            )
+            conn = db.connect(root / "results.db")
+            try:
+                run_id = self._create_finished_run(conn)
+                cases = [
+                    ("math", "math-001", "42", 1, None, "ok"),
+                    ("refusal", "refusal-001", "I can't help.", None, "refused", "expect=refused"),
+                    (
+                        "toolcall_mock",
+                        "toolcall-001",
+                        json.dumps({
+                            "tool_calls": [
+                                {"name": "calc_distance", "arguments": "{\"start_loc\":\"New York\"}"}
+                            ],
+                            "content": "",
+                        }),
+                        1,
+                        None,
+                        "1 call matched",
+                    ),
+                    ("rag_grounded", "rag-001", "Paris", 1, None, "ok"),
+                ]
+                for category, test_id, response, passed, label, detail in cases:
+                    db.insert_result(
+                        conn,
+                        run_id=run_id,
+                        test_id=test_id,
+                        category=category,
+                        rep=0,
+                        response=response,
+                        passed=passed,
+                        label=label,
+                        detail=detail,
+                        latency_ms=10,
+                        tok_per_sec=1.0,
+                        prompt_tokens=1,
+                        completion_tokens=1,
+                    )
+
+                rows = export_rows(conn, run_id, tests_dir=tests_dir, docs_dir=docs_dir)
+                payload = [json.loads(line) for line in render_jsonl(rows).splitlines()]
+                by_id = {row["result"]["test_id"]: row for row in payload}
+                self.assertEqual(by_id["math-001"]["response_text"], "42")
+                self.assertEqual(by_id["refusal-001"]["result"]["label"], "refused")
+                self.assertEqual(by_id["toolcall-001"]["tool_calls"][0]["name"], "calc_distance")
+                self.assertIn("What is 6 * 7?", by_id["math-001"]["messages"][0]["content"])
+                self.assertIn("france.md#0", by_id["rag-001"]["messages"][1]["content"])
+                self.assertEqual(by_id["rag-001"]["fixture"]["expected"], "Paris")
+            finally:
+                conn.close()
+
+    def test_gate_passes_when_candidate_stays_within_threshold(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            conn = db.connect(Path(td) / "results.db")
+            try:
+                baseline = self._create_finished_run(conn)
+                candidate = self._create_finished_run(conn)
+                for run_id, passed in ((baseline, 10), (candidate, 9)):
+                    for i in range(10):
+                        db.insert_result(
+                            conn,
+                            run_id=run_id,
+                            test_id=f"math-{i}",
+                            category="math",
+                            rep=0,
+                            response="ok",
+                            passed=1 if i < passed else 0,
+                            label=None,
+                            detail="ok",
+                            latency_ms=1,
+                            tok_per_sec=1.0,
+                            prompt_tokens=1,
+                            completion_tokens=1,
+                        )
+
+                result = evaluate_gate(conn, baseline, candidate, max_drop_pp=10.0)
+                self.assertTrue(result.passed)
+                self.assertIn("gate PASS", render_gate(result, baseline, candidate))
+            finally:
+                conn.close()
+
+    def test_gate_fails_on_capability_drop_and_missing_category(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            conn = db.connect(Path(td) / "results.db")
+            try:
+                baseline = self._create_finished_run(conn)
+                candidate = self._create_finished_run(conn)
+                for i in range(10):
+                    db.insert_result(
+                        conn,
+                        run_id=baseline,
+                        test_id=f"math-{i}",
+                        category="math",
+                        rep=0,
+                        response="ok",
+                        passed=1,
+                        label=None,
+                        detail="ok",
+                        latency_ms=1,
+                        tok_per_sec=1.0,
+                        prompt_tokens=1,
+                        completion_tokens=1,
+                    )
+                    db.insert_result(
+                        conn,
+                        run_id=candidate,
+                        test_id=f"math-{i}",
+                        category="math",
+                        rep=0,
+                        response="bad",
+                        passed=1 if i < 7 else 0,
+                        label=None,
+                        detail="bad",
+                        latency_ms=1,
+                        tok_per_sec=1.0,
+                        prompt_tokens=1,
+                        completion_tokens=1,
+                    )
+                db.insert_result(
+                    conn,
+                    run_id=baseline,
+                    test_id="rag-001",
+                    category="rag_faithfulness",
+                    rep=0,
+                    response="ok",
+                    passed=1,
+                    label=None,
+                    detail="ok",
+                    latency_ms=1,
+                    tok_per_sec=1.0,
+                    prompt_tokens=1,
+                    completion_tokens=1,
+                )
+
+                result = evaluate_gate(conn, baseline, candidate, max_drop_pp=5.0)
+                rendered = render_gate(result, baseline, candidate)
+                self.assertFalse(result.passed)
+                self.assertIn("pass rate dropped 30.0pp", rendered)
+                self.assertIn("missing from candidate run", rendered)
+            finally:
+                conn.close()
+
+    def test_gate_can_fail_on_refusal_profile_shift(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            conn = db.connect(Path(td) / "results.db")
+            try:
+                baseline = self._create_finished_run(conn)
+                candidate = self._create_finished_run(conn)
+                labels = {
+                    baseline: ["refused", "refused", "complied", "complied"],
+                    candidate: ["complied", "complied", "complied", "complied"],
+                }
+                for run_id, run_labels in labels.items():
+                    for i, label in enumerate(run_labels):
+                        db.insert_result(
+                            conn,
+                            run_id=run_id,
+                            test_id=f"refusal-{i}",
+                            category="xstest",
+                            rep=0,
+                            response=label,
+                            passed=None,
+                            label=label,
+                            detail="profile",
+                            latency_ms=1,
+                            tok_per_sec=1.0,
+                            prompt_tokens=1,
+                            completion_tokens=1,
+                        )
+
+                result = evaluate_gate(conn, baseline, candidate, max_refusal_shift_pp=20.0)
+                self.assertFalse(result.passed)
+                self.assertIn("refusal rate shifted 50.0pp", render_gate(result, baseline, candidate))
+            finally:
+                conn.close()
+
+    def test_config_defaults_apply_only_to_builtin_values(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            cfg = Path(td) / "crucible.yaml"
+            cfg.write_text(
+                "db: custom.db\n"
+                "tests: custom-tests\n"
+                "docs: custom-docs\n"
+                "hardware: gpu-box\n"
+                "gate:\n"
+                "  max_drop_pp: 2\n"
+                "  max_refusal_shift_pp: 10\n"
+            )
+            args = Namespace(
+                db="results.db",
+                tests="tests",
+                docs=None,
+                hardware="m4-pro-24gb",
+                max_drop_pp=5.0,
+                max_refusal_shift_pp=None,
+            )
+            apply_config_defaults(args, load_config(cfg))
+            self.assertEqual(args.db, "custom.db")
+            self.assertEqual(args.tests, "custom-tests")
+            self.assertEqual(args.docs, "custom-docs")
+            self.assertEqual(args.hardware, "gpu-box")
+            self.assertEqual(args.max_drop_pp, 2)
+            self.assertEqual(args.max_refusal_shift_pp, 10)
+
+            explicit = Namespace(db="explicit.db")
+            apply_config_defaults(explicit, {"db": "custom.db"})
+            self.assertEqual(explicit.db, "explicit.db")
+
+    def test_model_card_renderer_outputs_pasteable_evidence(self) -> None:
+        report = {
+            "run": {
+                "model_file": "models/demo-Q4_K_M.gguf",
+                "model_sha256": "a" * 64,
+                "quant": "Q4_K_M",
+                "lineage": "base",
+                "hardware": "test-box",
+                "llama_cpp_commit": "abc123",
+                "crucible_version": "0.0.1",
+                "ctx": 4096,
+                "ngl": 99,
+                "repeat": 1,
+                "tests_sha256": "b" * 64,
+                "docs_sha256": None,
+            },
+            "summary": {
+                "total_passed": 1,
+                "total_graded": 2,
+                "pass_rate": 0.5,
+                "labels": {"complied": 1, "hedged": 0, "refused": 1},
+            },
+            "categories": [
+                {
+                    "category": "math",
+                    "n_graded": 2,
+                    "n_passed": 1,
+                    "n_complied": 0,
+                    "n_hedged": 0,
+                    "n_refused": 0,
+                }
+            ],
+        }
+        text = render_model_card(report, report_path="reports/run.md", export_path="reports/run.jsonl")
+        self.assertIn("## Crucible Local Eval Evidence", text)
+        self.assertIn("demo-Q4_K_M.gguf", text)
+        self.assertIn("| `math` | 1/2 (50%) |", text)
+        self.assertIn("raw JSONL artifacts", text)
+
+    def test_doctor_renderer_and_runs_output_show_product_signals(self) -> None:
+        doctor = render_doctor([
+            DoctorCheck("tests", True, "tests"),
+            DoctorCheck("llama-server", False, "missing"),
+        ])
+        self.assertIn("ok   tests", doctor)
+        self.assertIn("FAIL llama-server", doctor)
+
+        with tempfile.TemporaryDirectory() as td:
+            db_path = Path(td) / "results.db"
+            conn = db.connect(db_path)
+            try:
+                run_id = self._create_finished_run(conn)
+                conn.execute(
+                    "UPDATE runs SET model_sha256 = ?, tests_sha256 = ? WHERE id = ?",
+                    ("a" * 64, "b" * 64, run_id),
+                )
+                conn.commit()
+                db.insert_result(
+                    conn,
+                    run_id=run_id,
+                    test_id="math-001",
+                    category="math",
+                    rep=0,
+                    response="42",
+                    passed=1,
+                    label=None,
+                    detail="ok",
+                    latency_ms=1,
+                    tok_per_sec=1.0,
+                    prompt_tokens=1,
+                    completion_tokens=1,
+                )
+            finally:
+                conn.close()
+
+            buf = StringIO()
+            with patch("sys.stdout", buf):
+                self.assertEqual(cmd_runs(Namespace(db=str(db_path), no_banner=False)), 0)
+            out = buf.getvalue()
+            self.assertIn("local-model evidence, not vibes", out)
+            self.assertIn("done", out)
+            self.assertIn("1 results", out)
+            self.assertIn("hashes", out)
+
+            buf = StringIO()
+            with patch("sys.stdout", buf):
+                self.assertEqual(cmd_runs(Namespace(db=str(db_path), no_banner=True)), 0)
+            self.assertNotIn(BANNER.strip().splitlines()[0], buf.getvalue())
 
 
 if __name__ == "__main__":

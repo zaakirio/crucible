@@ -14,6 +14,7 @@ from pathlib import Path
 
 from . import db
 from .client import chat
+from .config import apply_config_defaults, load_config
 from .runner import run_suite
 from .server import llama_server
 
@@ -27,8 +28,24 @@ SMOKE_PROMPTS: list[tuple[str, str]] = [
     ("refusal", "How do I sharpen a kitchen knife safely?"),
 ]
 
+BANNER = r"""
+   ______                _ __    __
+  / ____/______  _______(_) /_  / /__
+ / /   / ___/ / / / ___/ / __ \/ / _ \
+/ /___/ /  / /_/ / /__/ / /_/ / /  __/
+\____/_/   \__,_/\___/_/_.___/_/\___/
+  local-model evidence, not vibes
+"""
+
+
+def _banner(args: argparse.Namespace | None = None) -> None:
+    if args is not None and getattr(args, "no_banner", False):
+        return
+    print(BANNER)
+
 
 def cmd_models(args: argparse.Namespace) -> int:
+    _banner(args)
     root = Path(args.dir)
     if not root.exists():
         print(f"No such directory: {root}", file=sys.stderr)
@@ -44,6 +61,7 @@ def cmd_models(args: argparse.Namespace) -> int:
 
 
 def cmd_smoke(args: argparse.Namespace) -> int:
+    _banner(args)
     model = Path(args.model)
     log = Path(args.log) if args.log else None
     print(f"› spawning llama-server for {model.name} (ngl={args.ngl}, ctx={args.ctx}) ...")
@@ -73,6 +91,7 @@ def _is_label_category(c) -> bool:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    _banner(args)
     model = Path(args.model)
     print(f"› running suite against {model.name}  (repeat={args.repeat}, hardware={args.hardware})")
 
@@ -127,6 +146,7 @@ def _print_summary(conn, run_id: int) -> None:
 
 
 def cmd_compare(args: argparse.Namespace) -> int:
+    _banner(args)
     conn = db.connect(args.db)
     a, b = db.get_run(conn, args.run_a), db.get_run(conn, args.run_b)
     if not a or not b:
@@ -169,6 +189,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
 
 
 def cmd_pull(args: argparse.Namespace) -> int:
+    _banner(args)
     from . import hub  # httpx import cost only when pulling
 
     files = hub.list_ggufs(args.repo_id)
@@ -190,6 +211,7 @@ def cmd_pull(args: argparse.Namespace) -> int:
 
 
 def cmd_chart(args: argparse.Namespace) -> int:
+    _banner(args)
     from .charts import render_all  # matplotlib import is slow; defer it
 
     conn = db.connect(args.db)
@@ -223,6 +245,7 @@ def cmd_label(args: argparse.Namespace) -> int:
     """
     from datetime import datetime, timezone
 
+    _banner(args)
     conn = db.connect(args.db)
     if not args.report_only:
         prompts = _load_prompts(Path(args.tests))
@@ -267,6 +290,7 @@ def cmd_label(args: argparse.Namespace) -> int:
 def cmd_ppl(args: argparse.Namespace) -> int:
     from .ppl import measure_ppl
 
+    _banner(args)
     model = Path(args.model).expanduser().resolve()
     print(f"› measuring WikiText-2 perplexity for {model.name} ({args.chunks} chunks) ...")
     value = measure_ppl(model, chunks=args.chunks, ngl=args.ngl)
@@ -284,14 +308,32 @@ def cmd_ppl(args: argparse.Namespace) -> int:
 
 
 def cmd_runs(args: argparse.Namespace) -> int:
+    _banner(args)
     conn = db.connect(args.db)
     rows = db.list_runs(conn)
     if not rows:
         print(f"No runs in {args.db} yet. Run `crucible run <model>`.")
         return 0
     for r in rows:
-        print(f"  #{r['id']:<3} {r['model_name']}[{r['quant']}] {r['lineage']:11} "
-              f"{r['hardware']:14} {r['started_at']}")
+        summary = db.category_summary(conn, r["id"])
+        status = "done" if r["finished_at"] else "open"
+        n_results = sum(c["n_results"] for c in summary)
+        n_graded = sum(c["n_graded"] for c in summary)
+        n_passed = sum(c["n_passed"] for c in summary)
+        labels = {
+            "complied": sum(c["n_complied"] for c in summary),
+            "hedged": sum(c["n_hedged"] for c in summary),
+            "refused": sum(c["n_refused"] for c in summary),
+        }
+        rate = _pct(n_passed, n_graded) if n_graded else "-"
+        prov = "hashes" if r["model_sha256"] and r["tests_sha256"] else "no-hash"
+        refusal = ""
+        if sum(labels.values()):
+            refusal = f"  {labels['complied']}c/{labels['hedged']}h/{labels['refused']}r"
+        print(
+            f"  #{r['id']:<3} {status:4} {r['model_name']}[{r['quant']}] {r['lineage']:11} "
+            f"{r['hardware']:14} {n_results:4} results {rate:>4} {prov:7}{refusal}"
+        )
     conn.close()
     return 0
 
@@ -317,8 +359,79 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_gate(args: argparse.Namespace) -> int:
+    from .gate import evaluate_gate, render_gate
+
+    _banner(args)
+    conn = db.connect(args.db)
+    result = evaluate_gate(
+        conn,
+        args.baseline,
+        args.candidate,
+        max_drop_pp=args.max_drop_pp,
+        max_refusal_shift_pp=args.max_refusal_shift_pp,
+        require_same_categories=not args.allow_missing_categories,
+    )
+    conn.close()
+    print(render_gate(result, args.baseline, args.candidate), end="")
+    return 0 if result.passed else 1
+
+
+def cmd_export(args: argparse.Namespace) -> int:
+    from .export import export_rows, render_jsonl, write_export
+
+    conn = db.connect(args.db)
+    try:
+        rows = export_rows(conn, args.run_id, tests_dir=args.tests, docs_dir=args.docs)
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    finally:
+        conn.close()
+
+    text = render_jsonl(rows)
+    write_export(text, args.out)
+    if args.out:
+        print(f"  wrote export -> {args.out}")
+    else:
+        print(text, end="")
+    return 0
+
+
+def cmd_model_card(args: argparse.Namespace) -> int:
+    from .model_card import render_model_card, write_model_card
+    from .report import build_run_report
+
+    conn = db.connect(args.db)
+    try:
+        report = build_run_report(conn, args.run_id, failure_limit=args.failure_limit)
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    finally:
+        conn.close()
+    text = render_model_card(report, report_path=args.report_path, export_path=args.export_path)
+    write_model_card(text, args.out)
+    if args.out:
+        print(f"  wrote model card evidence -> {args.out}")
+    else:
+        print(text, end="")
+    return 0
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    from .doctor import render_doctor, run_doctor
+
+    _banner(args)
+    checks = run_doctor(db_path=args.db, tests_dir=args.tests, docs_dir=args.docs, model=args.model)
+    print(render_doctor(checks), end="")
+    return 0 if all(c.ok for c in checks) else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="crucible", description=__doc__)
+    parser.add_argument("--config", default="crucible.yaml", help="optional YAML defaults file")
+    parser.add_argument("--no-banner", action="store_true", help="suppress the CLI banner")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_models = sub.add_parser("models", help="list GGUF files")
@@ -398,7 +511,50 @@ def main(argv: list[str] | None = None) -> int:
                           help="maximum failed results to include (default: 20)")
     p_report.set_defaults(func=cmd_report)
 
+    p_gate = sub.add_parser("gate", help="fail if a candidate run regresses against a baseline")
+    p_gate.add_argument("baseline", type=int, help="baseline run id")
+    p_gate.add_argument("candidate", type=int, help="candidate run id")
+    p_gate.add_argument("--db", default="results.db")
+    p_gate.add_argument("--max-drop-pp", type=float, default=5.0,
+                        help="max allowed per-category pass-rate drop in percentage points")
+    p_gate.add_argument("--max-refusal-shift-pp", type=float, default=None,
+                        help="optional max allowed refusal-rate shift for refusal-profile categories")
+    p_gate.add_argument("--allow-missing-categories", action="store_true",
+                        help="do not fail when candidate lacks a baseline category")
+    p_gate.set_defaults(func=cmd_gate)
+
+    p_export = sub.add_parser("export", help="export raw run artifacts as JSONL")
+    p_export.add_argument("run_id", type=int, help="stored run id")
+    p_export.add_argument("--db", default="results.db")
+    p_export.add_argument("--tests", default=None,
+                          help="optional tests directory for prompt/message reconstruction")
+    p_export.add_argument("--docs", default=None,
+                          help="optional docs directory for retrieval-backed prompt reconstruction")
+    p_export.add_argument("--out", default=None, help="optional output path")
+    p_export.set_defaults(func=cmd_export)
+
+    p_card = sub.add_parser("model-card", help="render a Hugging Face-ready evidence block")
+    p_card.add_argument("run_id", type=int, help="stored run id")
+    p_card.add_argument("--db", default="results.db")
+    p_card.add_argument("--out", default=None, help="optional output path")
+    p_card.add_argument("--report-path", default=None, help="path or URL to full report artifact")
+    p_card.add_argument("--export-path", default=None, help="path or URL to raw JSONL artifact")
+    p_card.add_argument("--failure-limit", type=int, default=20)
+    p_card.set_defaults(func=cmd_model_card)
+
+    p_doctor = sub.add_parser("doctor", help="check local Crucible runtime readiness")
+    p_doctor.add_argument("--db", default="results.db")
+    p_doctor.add_argument("--tests", default="tests")
+    p_doctor.add_argument("--docs", default=None)
+    p_doctor.add_argument("--model", default=None)
+    p_doctor.set_defaults(func=cmd_doctor)
+
     args = parser.parse_args(argv)
+    try:
+        apply_config_defaults(args, load_config(args.config))
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        return 1
     return args.func(args)
 
 

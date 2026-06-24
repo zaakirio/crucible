@@ -28,6 +28,9 @@ runs, and charted.
 cd crucible
 uv sync
 
+# optional project defaults for db/tests/docs/hardware/gate thresholds
+uv run crucible --config crucible.yaml doctor
+
 # seed the paper-comparable suites (GSM8K, XSTest, ...) - deterministic, fixed seed
 uv run python scripts/seed_tests.py
 
@@ -52,9 +55,18 @@ uv run crucible run models/<model>.gguf --repeat 3
 uv run crucible runs
 uv run crucible compare 1 7
 
+# local preflight / CI gate: nonzero exit if candidate regresses beyond thresholds
+uv run crucible gate 1 7 --max-drop-pp 5 --max-refusal-shift-pp 20
+
 # evidence pack for a run: provenance, category results, failures, and caveats
 uv run crucible report 7 --out reports/run-7.md
 uv run crucible report 7 --format json --out reports/run-7.json
+
+# raw artifacts: one JSONL row per result, optionally reconstructing prompts/messages
+uv run crucible export 7 --tests tests --docs docs/rag --out reports/run-7.jsonl
+
+# Hugging Face-ready evidence block for model cards
+uv run crucible model-card 7 --report-path reports/run-7.md --export-path reports/run-7.jsonl --out reports/model-card.md
 
 # render findings as PNGs (quant curve, abliteration delta, refusal profile, pareto, ppl)
 uv run crucible chart
@@ -76,6 +88,9 @@ Current coverage:
 - provenance hashes for model files, tests, docs, and Crucible version
 - refusal profiling, tool-calling, tool-using agent loops, PPL, and charts
 - markdown/JSON evidence reports for stored runs
+- raw JSONL artifact export for prompts, responses, tool calls, grader details, and reconstructed RAG context
+- regression gates for local preflight or CI
+- model-card evidence snippets, `crucible.yaml` defaults, and `doctor` environment checks
 - resumable runs plus a mock-server integration test
 - grounded QA / RAG faithfulness fixtures via local retrieval over `docs/rag`
 - agent-style multi-turn conversation fixtures
@@ -86,6 +101,14 @@ are still available.
 **Requirements:** [uv](https://docs.astral.sh/uv/) and a built
 [llama.cpp](https://github.com/ggml-org/llama.cpp) - `llama-server` is found via a sibling
 `llama.cpp/build/bin/` checkout or `$PATH`; override with `$CRUCIBLE_LLAMA_SERVER`.
+
+The unit suite needs neither: it mocks the server (including a real-subprocess mock over the
+OpenAI-compatible API), so it runs offline with no model and no extra dependencies.
+
+```bash
+uv sync                                   # editable install + deps
+uv run python -m unittest discover tests  # full unit suite (stdlib unittest, no model needed)
+```
 
 ### Selected Findings
 
@@ -176,7 +199,6 @@ not as generalized benchmark claims.
 
 ## Next
 
-- add a regression gate for CI or local preflight checks
 - expand stateful agent/tool workflows beyond the starter loops
 - expand RAG corpora beyond the starter local docs
 - expand model coverage and compare more quant / abliterated variants

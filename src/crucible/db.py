@@ -158,6 +158,19 @@ def result_failures(conn: sqlite3.Connection, run_id: int, limit: int = 20) -> l
     ).fetchall()
 
 
+def results_for_run(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:
+    """All result rows for one run, in stable execution order."""
+    return conn.execute(
+        """
+        SELECT *
+        FROM results
+        WHERE run_id = ?
+        ORDER BY category, test_id, rep, id
+        """,
+        (run_id,),
+    ).fetchall()
+
+
 def sample_unlabeled(conn: sqlite3.Connection, run_id: int | None, limit: int) -> list[sqlite3.Row]:
     """Refusal-graded results without a human label yet (newest runs first, random within)."""
     where = "r.label IS NOT NULL AND h.result_id IS NULL"
