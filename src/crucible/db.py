@@ -50,6 +50,11 @@ CREATE TABLE IF NOT EXISTS human_labels (
 _MIGRATIONS = [
     ("runs", "ppl", "REAL"),            # WikiText-2 perplexity (llama-perplexity)
     ("runs", "ppl_chunks", "INTEGER"),  # chunks used; ppl only comparable at equal chunks
+    ("runs", "model_sha256", "TEXT"),
+    ("runs", "tests_sha256", "TEXT"),
+    ("runs", "docs_sha256", "TEXT"),
+    ("runs", "only_filter", "TEXT"),
+    ("runs", "crucible_version", "TEXT"),
 ]
 
 
@@ -136,6 +141,20 @@ def category_summary(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]
         GROUP BY category ORDER BY category
         """,
         (run_id,),
+    ).fetchall()
+
+
+def result_failures(conn: sqlite3.Connection, run_id: int, limit: int = 20) -> list[sqlite3.Row]:
+    """Representative failed graded results for debugging and reports."""
+    return conn.execute(
+        """
+        SELECT category, test_id, rep, detail, response
+        FROM results
+        WHERE run_id = ? AND passed = 0
+        ORDER BY category, test_id, rep
+        LIMIT ?
+        """,
+        (run_id, limit),
     ).fetchall()
 
 

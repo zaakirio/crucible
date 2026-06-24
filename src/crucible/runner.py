@@ -6,6 +6,7 @@ noise check), grades the response, and appends rows to SQLite.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
@@ -16,14 +17,17 @@ import httpx
 import yaml
 
 from . import db
+from . import __version__
 from .client import chat
 from .graders import GradeResult, grade
 from .server import llama_cpp_commit, llama_server
+from .retrieval import retrieve_context
 
 _QUANT_RE = re.compile(
     r"(IQ\d+_[A-Z]+|Q\d+_K_[SML]|Q\d+_K|Q\d+_\d+|BF16|F16|F32)", re.IGNORECASE
 )
 _ABLITERATED_MARKERS = ("uncensored", "abliterat", "heretic", "decensored", "deccp")
+_HASH_EXTS = {".yaml", ".yml", ".md", ".markdown", ".txt", ".rst"}
 
 
 def parse_model_meta(model_path: Path) -> tuple[str, str | None, str]:
@@ -66,6 +70,54 @@ def load_tests(tests_dir: Path, only: set[str] | None = None) -> list[tuple[str,
     return out
 
 
+def _file_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _tree_sha256(root: Path, *, exts: set[str] = _HASH_EXTS) -> str | None:
+    if not root.exists():
+        return None
+    h = hashlib.sha256()
+    for path in sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in exts):
+        rel = path.relative_to(root).as_posix()
+        h.update(rel.encode("utf-8"))
+        h.update(b"\0")
+        h.update(path.read_bytes())
+        h.update(b"\0")
+    return h.hexdigest()
+
+
+def test_messages(test: dict, *, docs_dir: str | Path | None = None) -> list[dict]:
+    """Return the chat payload messages for one test.
+
+    Most fixtures are still single-turn prompts, but grounded QA / RAG-style fixtures can
+    supply a full message list, and agent-style fixtures can use an explicit conversation
+    transcript so the harness can evaluate context-aware answers directly.
+    """
+    if test.get("messages"):
+        return test["messages"]
+    if test.get("conversation"):
+        return test["conversation"]
+    if test.get("retrieval"):
+        if docs_dir is None:
+            raise ValueError(f"test {test.get('id')!r} requests retrieval but no docs_dir was set")
+        query = test.get("prompt", "")
+        context = retrieve_context(query, docs_dir, top_k=int(test.get("top_k", 3)))
+        system = test.get(
+            "system",
+            "Answer using only the retrieved context. If the answer is not in the context, say you don't know.",
+        )
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": f"Retrieved context:\n{context}\n\nQuestion: {query}"},
+        ]
+    return [{"role": "user", "content": test["prompt"]}]
+
+
 def run_suite(
     model_path: str | Path,
     *,
@@ -77,10 +129,12 @@ def run_suite(
     ctx: int = 4096,
     only: set[str] | None = None,
     resume: bool = False,
+    docs_dir: str | Path | None = None,
     on_progress=None,
 ) -> int:
     model_path = Path(model_path).expanduser().resolve()
     tests_dir = Path(tests_dir)
+    docs_path = Path(docs_dir) if docs_dir is not None else None
     tests = load_tests(tests_dir, only)
     if not tests:
         raise SystemExit(f"No tests found under {tests_dir}/")
@@ -88,6 +142,10 @@ def run_suite(
     name, quant, lineage = parse_model_meta(model_path)
     conn = db.connect(db_path)
     llama_commit = llama_cpp_commit()
+    model_sha256 = _file_sha256(model_path)
+    tests_sha256 = _tree_sha256(tests_dir)
+    docs_sha256 = _tree_sha256(docs_path) if docs_path else None
+    only_filter = ",".join(sorted(only)) if only else None
 
     # This is the production execution path: swap in a temporary mock server for tests,
     # or let this context manager spawn a real llama.cpp `llama-server` binary for local runs.
@@ -101,6 +159,11 @@ def run_suite(
                 ngl=ngl,
                 repeat=repeat,
                 llama_cpp_commit=llama_commit,
+                model_sha256=model_sha256,
+                tests_sha256=tests_sha256,
+                docs_sha256=docs_sha256,
+                only_filter=only_filter,
+                crucible_version=__version__,
             )
             if resume
             else None
@@ -122,6 +185,11 @@ def run_suite(
                 started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 load_time_s=srv.load_time_s,
                 model_size_bytes=model_path.stat().st_size,
+                model_sha256=model_sha256,
+                tests_sha256=tests_sha256,
+                docs_sha256=docs_sha256,
+                only_filter=only_filter,
+                crucible_version=__version__,
             )
         seen = db.result_keys(conn, run_id)
         for category, test in tests:
@@ -134,7 +202,7 @@ def run_suite(
                 try:
                     res = chat(
                         srv.base_url,
-                        [{"role": "user", "content": test["prompt"]}],
+                        test_messages(test, docs_dir=docs_dir),
                         tools=test.get("tools"),
                     )
                 except httpx.HTTPStatusError as e:

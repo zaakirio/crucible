@@ -1,6 +1,6 @@
-"""Crucible - what survives quantization and abliteration.
+"""Crucible - what survives quantization, abliteration, and serving.
 
-An eval harness for self-hostable models. Module 02: drive llama-server over HTTP.
+A forensic eval workbench for self-hostable models served through local runtimes.
 """
 
 __version__ = "0.0.1"

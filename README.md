@@ -1,26 +1,28 @@
 # Crucible
 
-**What survives quantization and abliteration.** A reproducible eval harness for self-hostable
-models - capability, tool-calling, agents, and RAG - with first-class tracking of what quantization
-and refusal-direction removal actually cost a model.
+**What survives quantization, abliteration, and serving.** A forensic eval workbench for
+self-hostable models - capability, refusal behavior, tool-calling, RAG, and agent-style context -
+with first-class tracking of what local deployment choices actually cost.
 
-> Building in public. WIP - currently at Module 02 of a ten-module plan that grows this into
-> tool-calling, agent, and RAG evals with a CI regression gate and a public leaderboard.
+> Building in public. WIP. Crucible already covers capability, refusal, tool-calling, early
+> grounded QA/RAG, and multi-turn dialogue fixtures; deeper tool-using agent workflows are next.
 
 ## Why
 
-Everyone benchmarks GPT-5. Crucible benchmarks what you can actually run on your own GPU - including
-abliterated and quantized GGUFs - and reports the deltas nobody else publishes.
+Most leaderboards benchmark remote frontier APIs or unserved model snapshots. Crucible measures
+what you can actually run on your own GPU - including abliterated and quantized GGUFs - and reports
+the deltas that matter when you choose a local model for real use.
 
 Crucible drives `llama-server` over its OpenAI-compatible API (not `llama-cpp-python`), so it
 evaluates a model exactly as it's served: same chat template (`--jinja`), same samplers, same
 tool-call parsing your published GGUFs' users get. Every run records the llama.cpp commit, because
 a score shift can be the engine, not your model.
 
-## Status - Module 02: tool-calling evals (+ Module 01 complete)
+## Status
 
-Tests are YAML data (`tests/`), graded deterministically (exact / numeric / regex / code-exec /
-refusal-profile), stored append-only in SQLite, compared across runs, and charted.
+Tests are YAML data (`tests/`), graded deterministically where possible (exact / numeric / regex /
+code-exec / tool-call checks / refusal-profile), stored append-only in SQLite, compared across
+runs, and charted.
 
 ```bash
 cd crucible
@@ -40,6 +42,8 @@ uv run crucible pull bartowski/some-model-GGUF --list   # see what's in a repo f
 # run the full suite against a GGUF; results land in results.db
 uv run crucible run models/<model>.gguf -v
 # add --resume to continue an unfinished run after interruption
+# add --docs docs/rag to enable retrieval-backed grounded QA / RAG fixtures
+uv run crucible run models/<model>.gguf --docs docs/rag --only 'rag_*'
 
 # noise floor: same model 3x, reports which tests flap
 uv run crucible run models/<model>.gguf --repeat 3
@@ -47,6 +51,10 @@ uv run crucible run models/<model>.gguf --repeat 3
 # the audit: diff two runs (base vs abliterated, Q4 vs Q8)
 uv run crucible runs
 uv run crucible compare 1 7
+
+# evidence pack for a run: provenance, category results, failures, and caveats
+uv run crucible report 7 --out reports/run-7.md
+uv run crucible report 7 --format json --out reports/run-7.json
 
 # render findings as PNGs (quant curve, abliteration delta, refusal profile, pareto, ppl)
 uv run crucible chart
@@ -62,14 +70,24 @@ uv run crucible label
 uv run crucible label --report
 ```
 
+Current coverage:
+- local GGUF execution through `llama-server`
+- deterministic grading and append-only SQLite storage
+- provenance hashes for model files, tests, docs, and Crucible version
+- refusal profiling, tool-calling, PPL, and charts
+- markdown/JSON evidence reports for stored runs
+- resumable runs plus a mock-server integration test
+- grounded QA / RAG-style fixtures via local retrieval over `docs/rag`
+- agent-style multi-turn conversation fixtures
+
 `crucible smoke <model>` (quick 5-prompt sanity check) and `crucible models <dir>` (list GGUFs)
-are still there from Module 00.
+are still available.
 
 **Requirements:** [uv](https://docs.astral.sh/uv/) and a built
 [llama.cpp](https://github.com/ggml-org/llama.cpp) - `llama-server` is found via a sibling
 `llama.cpp/build/bin/` checkout or `$PATH`; override with `$CRUCIBLE_LLAMA_SERVER`.
 
-### First findings
+### Selected Findings
 
 Selected results from finished runs only. These are the exact values stored in `results.db`
 for one model family on one hardware setup and one llama.cpp commit; they are useful as
@@ -97,7 +115,7 @@ temperature 0.
 ![capability vs quantization](charts/quant_curve.png)
 ![refusal profile](charts/refusal_profile.png)
 
-### Module 02 findings: tool calling vs quantization (no published measurements existed)
+### Tool Calling
 
 | category | Q3_K_M | Q4_K_M | Q5_K_M | Q6_K | Q8_0 | F16 |
 |---|---|---|---|---|---|---|
@@ -129,7 +147,9 @@ these stored runs.
 | `sorrybench` | [SORRY-Bench](https://huggingface.co/datasets/sorry-bench/sorry-bench-202503) (ICLR 2025) - refusal-of-unsafe, 1/category | `refusal` profile |
 | `toolcall_single/multiple/parallel` | [BFCL v4](https://github.com/ShishirPatil/gorilla/tree/main/berkeley-function-call-leaderboard) static categories (Apache 2.0) | `tool_call` (BFCL-AST style) |
 | `toolcall_irrelevance/relevance` | BFCL v4 Live - knowing when *not* to call | `tool_call` |
-| `math`, `code`, `instruction`, `refusal` | hand-written starters (Module 00) | mixed |
+| `rag_grounded` | local retrieval over `docs/rag/` | `exact` |
+| `agent_dialogue` | hand-authored multi-turn conversation fixtures | `exact` |
+| `math`, `code`, `instruction`, `refusal` | hand-written starters | mixed |
 
 Tool calls are evaluated end-to-end as served: llama-server's own `--jinja` template parsing
 produces the `tool_calls`, and grading checks function-name match, argument values against
@@ -145,4 +165,6 @@ not as generalized benchmark claims.
 
 ## Next
 
-Module 02 adds tool-calling evals: right function, valid arguments, knowing when *not* to call.
+- add a regression gate for CI or local preflight checks
+- add tool-using agent workflows and stateful tool-eval suites
+- expand model coverage and compare more quant / abliterated variants

@@ -2,7 +2,7 @@
 
 Every grader is deterministic and machine-checkable. No LLM-as-judge here: capability and
 formatting are checkable by code, and a regression harness needs stable signal, not opinions.
-(LLM-judge arrives in Module 04, for agent behaviour that genuinely can't be checked by code.)
+Future agent workflows may need richer judgment, but the default bar is reproducible signal.
 
 A grader takes (test_dict, response_text) and returns a GradeResult:
   - passed: True/False for pass/fail graders, or None for refusal (which reports a label instead)

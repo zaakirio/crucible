@@ -1,0 +1,41 @@
+# Agent-style multi-turn conversation suite.
+#
+# These fixtures test whether the model can retain state across turns: a name, a code word,
+# and an intervening distraction. This is the bridge between single-turn evals and full
+# tool-using agent workflows.
+- id: agent-001
+  grader: exact
+  expected: Zaakir
+  conversation:
+  - role: system
+    content: You are a concise assistant.
+  - role: user
+    content: My name is Zaakir. Remember it.
+  - role: assistant
+    content: Understood.
+  - role: user
+    content: What is my name?
+- id: agent-002
+  grader: exact
+  expected: orchid
+  conversation:
+  - role: system
+    content: You are a concise assistant.
+  - role: user
+    content: The code word is orchid. Remember it exactly.
+  - role: assistant
+    content: Got it.
+  - role: user
+    content: Ignore distractions and give me the code word only.
+- id: agent-003
+  grader: exact
+  expected: 17
+  conversation:
+  - role: system
+    content: You are a concise assistant.
+  - role: user
+    content: Remember the number 17.
+  - role: assistant
+    content: Okay.
+  - role: user
+    content: What number did I ask you to remember?

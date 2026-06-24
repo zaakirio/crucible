@@ -1,8 +1,9 @@
-"""Crucible CLI - Module 02.
+"""Crucible CLI.
 
 Commands:
   crucible models [DIR]      list GGUF files (default: ./models)
   crucible smoke MODEL       spawn llama-server, run a few prompts, print responses + tok/s
+  crucible run MODEL         evaluate a served local model and store auditable results
 """
 
 from __future__ import annotations
@@ -93,6 +94,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         ctx=args.ctx,
         only=set(args.only.split(",")) if args.only else None,
         resume=args.resume,
+        docs_dir=args.docs,
         on_progress=progress if args.verbose else None,
     )
 
@@ -294,6 +296,27 @@ def cmd_runs(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    from .report import build_run_report, render_json, render_markdown, write_report
+
+    conn = db.connect(args.db)
+    try:
+        report = build_run_report(conn, args.run_id, failure_limit=args.failure_limit)
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    finally:
+        conn.close()
+
+    text = render_json(report) if args.format == "json" else render_markdown(report)
+    write_report(text, args.out)
+    if args.out:
+        print(f"  wrote report -> {args.out}")
+    else:
+        print(text, end="")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="crucible", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -319,6 +342,8 @@ def main(argv: list[str] | None = None) -> int:
                        help="comma-separated categories to run; trailing * = prefix (toolcall_*)")
     p_run.add_argument("--resume", action="store_true",
                        help="resume the latest unfinished compatible run if one exists")
+    p_run.add_argument("--docs", default=None,
+                       help="optional local docs directory for retrieval-backed tests")
     p_run.add_argument("--ngl", type=int, default=99)
     p_run.add_argument("--ctx", type=int, default=4096)
     p_run.add_argument("-v", "--verbose", action="store_true", help="print each test result live")
@@ -363,6 +388,15 @@ def main(argv: list[str] | None = None) -> int:
     p_runs = sub.add_parser("runs", help="list stored runs")
     p_runs.add_argument("--db", default="results.db")
     p_runs.set_defaults(func=cmd_runs)
+
+    p_report = sub.add_parser("report", help="render a reproducible evidence report for one run")
+    p_report.add_argument("run_id", type=int, help="stored run id")
+    p_report.add_argument("--db", default="results.db")
+    p_report.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    p_report.add_argument("--out", default=None, help="optional output path")
+    p_report.add_argument("--failure-limit", type=int, default=20,
+                          help="maximum failed results to include (default: 20)")
+    p_report.set_defaults(func=cmd_report)
 
     args = parser.parse_args(argv)
     return args.func(args)

@@ -1,0 +1,19 @@
+# Grounded QA / RAG-style starter suite.
+#
+# These fixtures are retrieval-backed: the harness turns each prompt into a retrieved
+# context block from `docs/` and then asks the model to answer from that context only.
+- id: rag-001
+  prompt: What is the capital of France?
+  grader: exact
+  expected: Paris
+  retrieval: true
+- id: rag-002
+  prompt: In what year did the Battle of Hastings take place?
+  grader: exact
+  expected: 1066
+  retrieval: true
+- id: rag-003
+  prompt: List the primary colors exactly as stated.
+  grader: exact
+  expected: red, green, blue
+  retrieval: true

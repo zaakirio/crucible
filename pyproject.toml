@@ -1,11 +1,11 @@
 [project]
 name = "crucible-eval"
 version = "0.1.0"
-description = "What survives quantization and abliteration - an eval harness for self-hostable models."
+description = "A forensic eval workbench for self-hostable models, quantization, abliteration, and serving."
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Zaakir" }]
-keywords = ["llm", "evaluation", "llama.cpp", "gguf", "quantization", "abliteration"]
+keywords = ["llm", "evaluation", "llama.cpp", "gguf", "quantization", "abliteration", "local-models"]
 requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.27",
