@@ -8,3 +8,5 @@ build/
 *.log
 .crucible/
 reports/
+.agents/
+skills-lock.json
