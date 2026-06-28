@@ -5,3 +5,16 @@ hardware: m4-pro-24gb
 gate:
   max_drop_pp: 5
   max_refusal_shift_pp: 20
+
+# Per-suite generation budget. Math/reasoning models need headroom for chain-of-thought;
+# refusal-profile tests only need a sentence or two.
+suite_defaults:
+  gsm8k:        {max_tokens: 2048}
+  gsm_symbolic: {max_tokens: 2048}
+  math:         {max_tokens: 2048}
+  code:         {max_tokens: 1024}
+  sorrybench:   {max_tokens: 256}
+  orbench:      {max_tokens: 256}
+  xstest:       {max_tokens: 256}
+  falsereject:  {max_tokens: 256}
+  refusal:      {max_tokens: 256}

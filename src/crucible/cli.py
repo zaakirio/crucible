@@ -112,9 +112,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         repeat=args.repeat,
         ngl=args.ngl,
         ctx=args.ctx,
+        workers=args.workers,
         only=set(args.only.split(",")) if args.only else None,
         resume=args.resume,
         docs_dir=args.docs,
+        suite_defaults=getattr(args, "suite_defaults", {}),
         on_progress=progress if args.verbose else None,
     )
 
@@ -460,6 +462,8 @@ def main(argv: list[str] | None = None) -> int:
                        help="optional local docs directory for retrieval-backed tests")
     p_run.add_argument("--ngl", type=int, default=99)
     p_run.add_argument("--ctx", type=int, default=4096)
+    p_run.add_argument("--workers", type=int, default=1,
+                       help="parallel inference slots (default: 1; 4 recommended for speed)")
     p_run.add_argument("-v", "--verbose", action="store_true", help="print each test result live")
     p_run.set_defaults(func=cmd_run)
 
@@ -552,7 +556,9 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     try:
-        apply_config_defaults(args, load_config(args.config))
+        raw_config = load_config(args.config)
+        apply_config_defaults(args, raw_config)
+        args.suite_defaults = raw_config.get("suite_defaults", {})
     except ValueError as e:
         print(str(e), file=sys.stderr)
         return 1

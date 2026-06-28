@@ -210,6 +210,7 @@ def llama_server(
     *,
     ngl: int = 99,
     ctx: int = 4096,
+    n_parallel: int = 1,
     jinja: bool = True,
     flash_attn: str = "auto",
     health_timeout_s: float = 180.0,
@@ -233,6 +234,7 @@ def llama_server(
         "-ngl", str(ngl),
         "--ctx-size", str(ctx),
         "--flash-attn", flash_attn,
+        "-np", str(n_parallel),
     ]
     if jinja:
         cmd.append("--jinja")

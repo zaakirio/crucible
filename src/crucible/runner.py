@@ -10,7 +10,9 @@ import contextlib
 import hashlib
 import json
 import re
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -27,6 +29,8 @@ from .retrieval import retrieve_context
 # Metal backend OOMs it stays wedged, so grinding out hundreds of identical error rows
 # helps nobody. The partial run stays resumable.
 _MAX_CONSECUTIVE_ERRORS = 8
+
+_DEFAULT_MAX_TOKENS = 512
 
 
 class RunAborted(RuntimeError):
@@ -77,11 +81,19 @@ def parse_model_meta(model_path: Path) -> tuple[str, str | None, str]:
     return name, quant, lineage
 
 
-def load_tests(tests_dir: Path, only: set[str] | None = None) -> list[tuple[str, dict]]:
+def load_tests(
+    tests_dir: Path,
+    only: set[str] | None = None,
+    suite_defaults: dict[str, dict] | None = None,
+) -> list[tuple[str, dict]]:
     """Load every tests/*.yaml file. Category = filename stem. Returns [(category, test), ...].
 
     `only` restricts to the named categories; a name with a trailing * is a prefix match
     (e.g. "toolcall_*" selects every tool-calling suite).
+
+    `suite_defaults` is a {category: {key: value}} mapping sourced from crucible.yaml's
+    `suite_defaults` block. Priority order (lowest to highest):
+      suite_defaults config -> YAML-file suite-level keys -> individual test keys.
     """
     def wanted(category: str) -> bool:
         if only is None:
@@ -94,9 +106,18 @@ def load_tests(tests_dir: Path, only: set[str] | None = None) -> list[tuple[str,
         category = path.stem
         if not wanted(category):
             continue
-        items = yaml.safe_load(path.read_text()) or []
+        raw = yaml.safe_load(path.read_text()) or []
+        # Support both a plain list and a {max_tokens: N, tests: [...]} dict.
+        if isinstance(raw, dict):
+            file_suite_level = {k: v for k, v in raw.items() if k != "tests"}
+            items = raw.get("tests", [])
+        else:
+            file_suite_level = {}
+            items = raw
+        config_cat_defaults = (suite_defaults or {}).get(category, {})
         for t in items:
-            out.append((category, t))
+            merged = {**config_cat_defaults, **file_suite_level, **t}
+            out.append((category, merged))
     return out
 
 
@@ -199,9 +220,11 @@ def _stored_tool_loop_response(first: ChatResult, final: ChatResult) -> str:
     return json.dumps({"tool_calls": calls, "final": final.text}, sort_keys=True)
 
 
-def _run_agent_tool_test(base_url: str, test: dict, *, docs_dir: str | Path | None = None) -> tuple[ChatResult, GradeResult]:
+def _run_agent_tool_test(
+    base_url: str, test: dict, *, docs_dir: str | Path | None = None, max_tokens: int = _DEFAULT_MAX_TOKENS
+) -> tuple[ChatResult, GradeResult]:
     messages = test_messages(test, docs_dir=docs_dir)
-    first = chat(base_url, messages, tools=test.get("tools"))
+    first = chat(base_url, messages, tools=test.get("tools"), max_tokens=max_tokens)
     call_grade = grade_tool_call(
         {
             "grader": "tool_call",
@@ -219,7 +242,7 @@ def _run_agent_tool_test(base_url: str, test: dict, *, docs_dir: str | Path | No
         return first, GradeResult(passed=False, detail="agent_tool test made no tool call")
 
     tool_messages = _tool_result_messages(test, first.tool_calls)
-    final = chat(base_url, [*messages, _assistant_tool_call_message(first), *tool_messages])
+    final = chat(base_url, [*messages, _assistant_tool_call_message(first), *tool_messages], max_tokens=max_tokens)
     final.prompt_tokens = _combine_counts(first.prompt_tokens, final.prompt_tokens)
     final.completion_tokens = _combine_counts(first.completion_tokens, final.completion_tokens)
     final.text = _stored_tool_loop_response(first, final)
@@ -231,6 +254,75 @@ def _run_agent_tool_test(base_url: str, test: dict, *, docs_dir: str | Path | No
     return final, g
 
 
+def _execute_test(
+    base_url: str, category: str, test: dict, rep: int, docs_dir: str | Path | None
+) -> tuple[str, dict, int, ChatResult | None, GradeResult, int, str, bool]:
+    """Run one test against the server. Returns (category, test, rep, res, g, latency_ms, stored, is_error).
+
+    Never raises - errors are captured into GradeResult so the pool can always collect results.
+    Thread-safe: touches no shared mutable state.
+    """
+    max_tokens = test.get("max_tokens", _DEFAULT_MAX_TOKENS)
+    t0 = time.perf_counter()
+    try:
+        if test.get("agent_tool"):
+            res, g = _run_agent_tool_test(base_url, test, docs_dir=docs_dir, max_tokens=max_tokens)
+        else:
+            res = chat(
+                base_url,
+                test_messages(test, docs_dir=docs_dir),
+                tools=test.get("tools"),
+                max_tokens=max_tokens,
+            )
+            g = None
+    except ServerError as e:
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+        body = e.body[:200]
+        g = GradeResult(
+            passed=None if test.get("grader") == "refusal" else False,
+            detail=f"server returned {e.status_code}: {body[:120]}",
+        )
+        return (category, test, rep, None, g, latency_ms, f"<server error {e.status_code}> {body}", True)
+    except Exception as e:
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+        g = GradeResult(passed=False, detail=f"unexpected {type(e).__name__}: {str(e)[:120]}")
+        return (category, test, rep, None, g, latency_ms, f"<unexpected {type(e).__name__}> {str(e)[:200]}", True)
+
+    latency_ms = int((time.perf_counter() - t0) * 1000)
+    if g is None:
+        try:
+            g = grade(test, res.text, res.tool_calls)
+        except Exception as e:
+            g = GradeResult(passed=False, detail=f"grade error {type(e).__name__}: {str(e)[:120]}")
+            return (category, test, rep, res, g, latency_ms, res.text, False)
+
+    stored = res.text
+    if res.tool_calls:
+        calls = [{"name": c.name, "arguments": c.raw_arguments} for c in res.tool_calls]
+        stored = json.dumps({"tool_calls": calls, "content": res.text})
+
+    return (category, test, rep, res, g, latency_ms, stored, False)
+
+
+def _store_result(conn, run_id: int, category: str, test: dict, rep: int,
+                  res: ChatResult | None, g: GradeResult, latency_ms: int, stored: str) -> None:
+    db.insert_result(
+        conn,
+        run_id=run_id,
+        test_id=test["id"],
+        category=category,
+        rep=rep,
+        response=stored,
+        passed=None if g.passed is None else int(g.passed),
+        label=g.label,
+        detail=g.detail,
+        latency_ms=latency_ms,
+        tok_per_sec=res.tokens_per_second if res else None,
+        prompt_tokens=res.prompt_tokens if res else None,
+        completion_tokens=res.completion_tokens if res else None,
+    )
+
+
 def run_suite(
     model_path: str | Path,
     *,
@@ -240,15 +332,17 @@ def run_suite(
     repeat: int = 1,
     ngl: int = 99,
     ctx: int = 4096,
+    workers: int = 1,
     only: set[str] | None = None,
     resume: bool = False,
     docs_dir: str | Path | None = None,
+    suite_defaults: dict[str, dict] | None = None,
     on_progress=None,
 ) -> int:
     model_path = Path(model_path).expanduser().resolve()
     tests_dir = Path(tests_dir)
     docs_path = Path(docs_dir) if docs_dir is not None else None
-    tests = load_tests(tests_dir, only)
+    tests = load_tests(tests_dir, only, suite_defaults=suite_defaults)
     if not tests:
         raise SystemExit(f"No tests found under {tests_dir}/")
 
@@ -259,12 +353,8 @@ def run_suite(
     docs_sha256 = _tree_sha256(docs_path) if docs_path else None
     only_filter = ",".join(sorted(only)) if only else None
 
-    # This is the production execution path: swap in a temporary mock server for tests,
-    # or let this context manager spawn a real llama.cpp `llama-server` binary for local runs.
-    # The DB connection rides the same `with` so it is closed on every exit, including a
-    # mid-run abort (RunAborted) or a failed preflight.
     with (
-        llama_server(model_path, ngl=ngl, ctx=ctx) as srv,
+        llama_server(model_path, ngl=ngl, ctx=ctx, n_parallel=workers) as srv,
         contextlib.closing(db.connect(db_path)) as conn,
     ):
         run = (
@@ -308,106 +398,41 @@ def run_suite(
                 only_filter=only_filter,
                 crucible_version=__version__,
             )
+
         seen = db.result_keys(conn, run_id)
-        errors_in_a_row = 0
+
+        # Emit progress for already-completed tests (resume case).
         for category, test in tests:
             for rep in range(repeat):
-                if (test["id"], rep) in seen:
-                    if on_progress:
-                        on_progress(category, test, rep, GradeResult(passed=True, detail="skipped (resumed)"))
-                    continue
-                t0 = time.perf_counter()
-                try:
-                    if test.get("agent_tool"):
-                        res, g = _run_agent_tool_test(srv.base_url, test, docs_dir=docs_dir)
-                    else:
-                        res = chat(
-                            srv.base_url,
-                            test_messages(test, docs_dir=docs_dir),
-                            tools=test.get("tools"),
-                        )
-                        g = None
-                except ServerError as e:
-                    # The server answered but errored: its tool-call parser choking on the
-                    # model's output is a finding about this model/quant - record it and keep
-                    # going. A wedged/dead server (e.g. Metal OOM) is caught by _abort_check.
-                    latency_ms = int((time.perf_counter() - t0) * 1000)
-                    body = e.body[:200]
-                    g = GradeResult(
-                        passed=None if test.get("grader") == "refusal" else False,
-                        detail=f"server returned {e.status_code}: {body[:120]}",
-                    )
-                    db.insert_result(
-                        conn, run_id=run_id, test_id=test["id"], category=category, rep=rep,
-                        response=f"<server error {e.status_code}> {body}",
-                        passed=None if g.passed is None else int(g.passed),
-                        label=None, detail=g.detail, latency_ms=latency_ms,
-                        tok_per_sec=None, prompt_tokens=None, completion_tokens=None,
-                    )
-                    if on_progress:
-                        on_progress(category, test, rep, g)
-                    errors_in_a_row += 1
-                    _abort_check(srv, errors_in_a_row)
-                    continue
-                except Exception as e:
-                    latency_ms = int((time.perf_counter() - t0) * 1000)
-                    g = GradeResult(
-                        passed=False,
-                        detail=f"unexpected {type(e).__name__}: {str(e)[:120]}",
-                    )
-                    db.insert_result(
-                        conn, run_id=run_id, test_id=test["id"], category=category, rep=rep,
-                        response=f"<unexpected {type(e).__name__}> {str(e)[:200]}",
-                        passed=0, label=None, detail=g.detail, latency_ms=latency_ms,
-                        tok_per_sec=None, prompt_tokens=None, completion_tokens=None,
-                    )
-                    if on_progress:
-                        on_progress(category, test, rep, g)
-                    errors_in_a_row += 1
-                    _abort_check(srv, errors_in_a_row)
-                    continue
-                errors_in_a_row = 0
-                latency_ms = int((time.perf_counter() - t0) * 1000)
-                if g is None:
-                    try:
-                        g = grade(test, res.text, res.tool_calls)
-                    except Exception as e:
-                        g = GradeResult(
-                            passed=False,
-                            detail=f"grade error {type(e).__name__}: {str(e)[:120]}",
-                        )
-                        db.insert_result(
-                            conn, run_id=run_id, test_id=test["id"], category=category, rep=rep,
-                            response=res.text,
-                            passed=0, label=None, detail=g.detail, latency_ms=latency_ms,
-                            tok_per_sec=res.tokens_per_second, prompt_tokens=res.prompt_tokens,
-                            completion_tokens=res.completion_tokens,
-                        )
-                        if on_progress:
-                            on_progress(category, test, rep, g)
-                        continue
-                stored = res.text
-                if res.tool_calls:  # tool-call turns have empty text; store what was called
-                    calls = [{"name": c.name, "arguments": c.raw_arguments} for c in res.tool_calls]
-                    stored = json.dumps({"tool_calls": calls, "content": res.text})
-                db.insert_result(
-                    conn,
-                    run_id=run_id,
-                    test_id=test["id"],
-                    category=category,
-                    rep=rep,
-                    response=stored,
-                    passed=None if g.passed is None else int(g.passed),
-                    label=g.label,
-                    detail=g.detail,
-                    latency_ms=latency_ms,
-                    tok_per_sec=res.tokens_per_second,
-                    prompt_tokens=res.prompt_tokens,
-                    completion_tokens=res.completion_tokens,
-                )
+                if (test["id"], rep) in seen and on_progress:
+                    on_progress(category, test, rep, GradeResult(passed=True, detail="skipped (resumed)"))
+
+        pending = [
+            (category, test, rep)
+            for category, test in tests
+            for rep in range(repeat)
+            if (test["id"], rep) not in seen
+        ]
+
+        errors_in_a_row = 0
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(_execute_test, srv.base_url, cat, test, rep, docs_path): (cat, test, rep)
+                for cat, test, rep in pending
+            }
+            for future in as_completed(futures):
+                _abort_check(srv, errors_in_a_row)
+                category, test, rep, res, g, latency_ms, stored, is_error = future.result()
+                _store_result(conn, run_id, category, test, rep, res, g, latency_ms, stored)
                 seen.add((test["id"], rep))
+                if is_error:
+                    errors_in_a_row += 1
+                    _abort_check(srv, errors_in_a_row)
+                else:
+                    errors_in_a_row = 0
                 if on_progress:
                     on_progress(category, test, rep, g)
+
         db.finish_run(conn, run_id, datetime.now(timezone.utc).isoformat(timespec="seconds"))
 
     return run_id
