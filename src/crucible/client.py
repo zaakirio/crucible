@@ -64,12 +64,18 @@ def chat(
     max_tokens: int = 512,
     timeout_s: float = 300.0,
     model: str | None = None,
+    enable_thinking: bool | None = None,
 ) -> ChatResult:
     """Send a chat-completions request and return the assistant text + server-reported timings.
 
     When `tools` is given we rely on llama-server's own template-driven tool-call parsing
     (--jinja): the model is evaluated exactly as served, including how its tool-call syntax
     is parsed into the OpenAI tool_calls format.
+
+    `enable_thinking` maps to llama.cpp's `chat_template_kwargs` mechanism, which passes the
+    value into the jinja chat template. Models that support a thinking toggle (e.g. Qwen3's
+    `enable_thinking` key) respect it; others ignore unknown kwargs silently. This keeps the
+    client model-agnostic - no per-model branching required.
     """
     payload = {
         "messages": messages,
@@ -83,6 +89,8 @@ def chat(
         payload["model"] = model
     if tools:
         payload["tools"] = tools
+    if enable_thinking is not None:
+        payload["chat_template_kwargs"] = {"enable_thinking": enable_thinking}
     r = httpx.post(f"{base_url}/v1/chat/completions", json=payload, timeout=timeout_s)
     if r.status_code >= 400:
         raise ServerError(r.status_code, r.text)

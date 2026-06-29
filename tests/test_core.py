@@ -433,7 +433,7 @@ class CoreTests(unittest.TestCase):
             def fake_server(*_args, **_kwargs):
                 yield SimpleNamespace(base_url="http://127.0.0.1:1", load_time_s=0.0)
 
-            def fake_chat(base_url, messages, *, tools=None, temperature=0.0, seed=0, max_tokens=512, timeout_s=300.0, model=None):
+            def fake_chat(base_url, messages, *, tools=None, temperature=0.0, seed=0, max_tokens=512, timeout_s=300.0, model=None, enable_thinking=None):
                 self.assertEqual(base_url, "http://127.0.0.1:1")
                 self.assertEqual([m["role"] for m in messages], ["system", "user"])
                 self.assertIn("provided context", messages[0]["content"])
@@ -494,7 +494,7 @@ class CoreTests(unittest.TestCase):
             def fake_server(*_args, **_kwargs):
                 yield SimpleNamespace(base_url="http://127.0.0.1:1", load_time_s=0.0)
 
-            def fake_chat(base_url, messages, *, tools=None, temperature=0.0, seed=0, max_tokens=512, timeout_s=300.0, model=None):
+            def fake_chat(base_url, messages, *, tools=None, temperature=0.0, seed=0, max_tokens=512, timeout_s=300.0, model=None, enable_thinking=None):
                 self.assertEqual(base_url, "http://127.0.0.1:1")
                 self.assertEqual(messages[0]["role"], "system")
                 self.assertIn("retrieved context", messages[1]["content"].lower())
@@ -558,7 +558,7 @@ class CoreTests(unittest.TestCase):
             def fake_server(*_args, **_kwargs):
                 yield SimpleNamespace(base_url="http://127.0.0.1:1", load_time_s=0.0)
 
-            def fake_chat(base_url, messages, *, tools=None, temperature=0.0, seed=0, max_tokens=512, timeout_s=300.0, model=None):
+            def fake_chat(base_url, messages, *, tools=None, temperature=0.0, seed=0, max_tokens=512, timeout_s=300.0, model=None, enable_thinking=None):
                 self.assertEqual(base_url, "http://127.0.0.1:1")
                 self.assertIn("retrieved context", messages[1]["content"].lower())
                 self.assertRegex(messages[1]["content"], r"\[[a-z]+\.md#0\]")
@@ -617,7 +617,7 @@ class CoreTests(unittest.TestCase):
             def fake_server(*_args, **_kwargs):
                 yield SimpleNamespace(base_url="http://127.0.0.1:1", load_time_s=0.0)
 
-            def fake_chat(base_url, messages, *, tools=None, temperature=0.0, seed=0, max_tokens=512, timeout_s=300.0, model=None):
+            def fake_chat(base_url, messages, *, tools=None, temperature=0.0, seed=0, max_tokens=512, timeout_s=300.0, model=None, enable_thinking=None):
                 self.assertEqual(base_url, "http://127.0.0.1:1")
                 self.assertEqual([m["role"] for m in messages], ["system", "user", "assistant", "user"])
                 self.assertEqual(messages[1]["content"], "My name is Zaakir. Remember it.")

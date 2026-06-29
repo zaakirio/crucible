@@ -223,9 +223,11 @@ def _stored_tool_loop_response(first: ChatResult, final: ChatResult) -> str:
 def _run_agent_tool_test(
     base_url: str, test: dict, *, docs_dir: str | Path | None = None,
     max_tokens: int = _DEFAULT_MAX_TOKENS, model: str | None = None,
+    enable_thinking: bool | None = None,
 ) -> tuple[ChatResult, GradeResult]:
     messages = test_messages(test, docs_dir=docs_dir)
-    first = chat(base_url, messages, tools=test.get("tools"), max_tokens=max_tokens, model=model)
+    first = chat(base_url, messages, tools=test.get("tools"), max_tokens=max_tokens,
+                 model=model, enable_thinking=enable_thinking)
     call_grade = grade_tool_call(
         {
             "grader": "tool_call",
@@ -244,7 +246,7 @@ def _run_agent_tool_test(
 
     tool_messages = _tool_result_messages(test, first.tool_calls)
     final = chat(base_url, [*messages, _assistant_tool_call_message(first), *tool_messages],
-                 max_tokens=max_tokens, model=model)
+                 max_tokens=max_tokens, model=model, enable_thinking=enable_thinking)
     final.prompt_tokens = _combine_counts(first.prompt_tokens, final.prompt_tokens)
     final.completion_tokens = _combine_counts(first.completion_tokens, final.completion_tokens)
     final.text = _stored_tool_loop_response(first, final)
@@ -266,11 +268,14 @@ def _execute_test(
     Thread-safe: touches no shared mutable state.
     """
     max_tokens = test.get("max_tokens", _DEFAULT_MAX_TOKENS)
+    # None means "let the model decide"; False disables thinking via chat_template_kwargs.
+    enable_thinking: bool | None = test.get("enable_thinking")
     t0 = time.perf_counter()
     try:
         if test.get("agent_tool"):
             res, g = _run_agent_tool_test(base_url, test, docs_dir=docs_dir,
-                                          max_tokens=max_tokens, model=model)
+                                          max_tokens=max_tokens, model=model,
+                                          enable_thinking=enable_thinking)
         else:
             res = chat(
                 base_url,
@@ -278,6 +283,7 @@ def _execute_test(
                 tools=test.get("tools"),
                 max_tokens=max_tokens,
                 model=model,
+                enable_thinking=enable_thinking,
             )
             g = None
     except ServerError as e:
