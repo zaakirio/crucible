@@ -178,52 +178,16 @@ uv run crucible export <run-id> --out reports/run.jsonl
 uv run crucible chart
 ```
 
-## Selected findings
+## Example findings
 
-Results from finished runs.
-These are exact values stored in `results.db` for one hardware setup
-(Apple M4 Pro, 24 GB) and one llama.cpp commit.
-They are evidence for this specific setup, not universal claims.
+**[LFM2.5-1.2B — base vs Heretic-abliterated (2026-06-29)](charts/evidence.html)**
 
-### LFM2.5-1.2B — base vs Heretic-abliterated (2026-06-29, judge-validated)
-
-![Evidence report](charts/evidence.png)
-
-[View interactive report →](charts/evidence.html)
-
-LLM judge (deepseek-chat) results:
-
-| category | base [Q4_K_M] | abliterated [Q4_K_M] | Δ |
-|---|---|---|---|
-| gsm8k (n=100) | 61/100 | 66/100 | +5pp |
-| gsm_symbolic (n=100) | 51/100 | 47/100 | -4pp (within noise) |
-| code | 5/6 | 5/6 | +0pp |
-| instruction | 7/7 | 7/7 | +0pp |
-| sorrybench (unsafe prompts) | 8 complied / 11 hedged / **26 refused** | **34 complied** / 6 hedged / 5 refused | the point |
-| orbench (over-refusal) | 20 complied / 24 hedged / 6 refused | **44 complied** / 6 hedged / 0 refused | false refusals largely gone |
-| xstest | 20 complied / 3 hedged / 17 refused | 24 complied / 10 hedged / 6 refused | safe half complied, unsafe half shifted |
-| falsereject (benign edge cases) | 1 complied / 43 hedged / 6 refused | 22 complied / 28 hedged / 0 refused | much less over-refusal |
-
-Zero capability regression that clears the noise bar.
-The abliteration effect is concentrated on sorrybench (unsafe instructions) and orbench
-(over-refusal on legitimate prompts).
-Parallel calling remains 0/20 across both - a 1.2B capacity limit, not an abliteration artefact.
-
-### Tool calling — LFM2.5-1.2B quant sweep
+Full evidence report with refusal profile shift, capability preservation, and judge-validated grading.
+Headline: sorrybench +26 complied, −21 refused, zero capability regression.
 
 ![Capability vs quantization](charts/quant_curve.png)
 
-![Tool calling vs quantization](charts/toolcall_curve.png)
-
-| category | Q3_K_M | Q4_K_M | Q5_K_M | Q6_K | Q8_0 | F16 |
-|---|---|---|---|---|---|---|
-| single call | 25/40 | 26/40 | 25/40 | 25/40 | 25/40 | 25/40 |
-| choose right function | 13/20 | 12/20 | 13/20 | 12/20 | 13/20 | 13/20 |
-| parallel calls | 0/20 | 0/20 | 0/20 | 0/20 | 0/20 | 0/20 |
-| relevance (should call) | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
-| irrelevance (should NOT call) | 12/15 | 10/15 | 8/15 | 9/15 | 9/15 | 9/15 |
-
-Tool calling is insensitive to quantization on this model family.
+![Refusal profile](charts/refusal_profile.png)
 
 ## Test suites
 

@@ -152,17 +152,40 @@ def _style_ax(ax, fig) -> None:
 
 
 def _curve(sweep: list[GroupStats], categories: list[str], title: str, path: Path) -> Path:
-    fig, ax = plt.subplots(figsize=(9, 5))
-    _style_ax(ax, fig)
+    """Line chart across quants. Only draws a line for categories that appear in ≥2 quants;
+    single-quant categories are silently dropped to avoid isolated floating dots."""
     quants = [g.quant for g in sweep]
+
+    # Partition categories: those with ≥2 data points get lines, rest are dropped.
+    plottable = []
     for cat in categories:
         ys = [g.categories[cat].rate * 100 if cat in g.categories
               and g.categories[cat].rate is not None else None for g in sweep]
-        ax.plot(quants, ys, marker="o", linewidth=2.0, markersize=7, label=cat)
+        n_real = sum(1 for y in ys if y is not None)
+        if n_real >= 2:
+            plottable.append((cat, ys))
+
+    if not plottable:
+        return "no categories with ≥2 quant data points"
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    _style_ax(ax, fig)
+    for cat, ys in plottable:
+        # Plot connected segments; gaps where y is None are handled by matplotlib.
+        xs = [q for q, y in zip(quants, ys) if y is not None]
+        vs = [y for y in ys if y is not None]
+        line, = ax.plot(xs, vs, marker="o", linewidth=2.0, markersize=6, label=cat)
+        # End-of-line label avoids legend clutter.
+        ax.annotate(cat, xy=(xs[-1], vs[-1]),
+                    xytext=(6, 0), textcoords="offset points",
+                    va="center", fontsize=8, color=line.get_color())
+
     ax.set_ylabel("pass rate (%)", fontsize=10)
-    ax.set_ylim(0, 105)
+    ax.set_ylim(0, 108)
     ax.set_title(title, fontsize=12, fontweight="bold", pad=12)
-    ax.legend(fontsize=8, framealpha=0.9)
+    # Reserve right-side space for the inline labels — no legend box needed.
+    fig.tight_layout()
+    fig.subplots_adjust(right=0.78)
     fig.savefig(path, **_FIG_KW)
     plt.close(fig)
     return path
@@ -248,12 +271,13 @@ def chart_ablit_delta(conn, out_dir: Path) -> Path | str:
                     ha="center", fontsize=8, fontweight="bold", color=color)
     ax.set_xticks(list(x), cats, rotation=35, ha="right", fontsize=8)
     ax.set_ylabel("pass rate (%)", fontsize=10)
-    ax.set_ylim(0, 115)
+    ax.set_ylim(0, 118)
     ax.set_title(f"{b.model_name} — capability delta (base vs abliterated)", fontsize=12, fontweight="bold", pad=12)
-    ax.legend(framealpha=0.9)
+    ax.legend(framealpha=0.95, loc="upper right",
+              bbox_to_anchor=(1.0, 1.0), borderaxespad=0.5, fontsize=9)
+    fig.tight_layout()
     path = out_dir / "ablit_delta.png"
     fig.savefig(path, **_FIG_KW)
-    plt.close(fig)
     return path
 
 
@@ -289,7 +313,9 @@ def chart_refusal_profile(conn, out_dir: Path) -> Path | str:
         bottom = [b + v for b, v in zip(bottom, vals)]
     ax.set_ylabel("share of refusal-eval prompts (%)", fontsize=10)
     ax.set_title("Refusal profile — complied / hedged / refused", fontsize=12, fontweight="bold", pad=12)
-    ax.legend(loc="lower right", framealpha=0.9)
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.18),
+              ncol=3, framealpha=0.95, fontsize=9)
+    fig.tight_layout(rect=[0, 0.08, 1, 1])  # leave room below for legend
     path = out_dir / "refusal_profile.png"
     fig.savefig(path, **_FIG_KW)
     plt.close(fig)
