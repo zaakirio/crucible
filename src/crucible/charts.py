@@ -29,13 +29,34 @@ import matplotlib
 matplotlib.use("Agg")  # render to files; never require a display
 import matplotlib.pyplot as plt
 
+plt.style.use("seaborn-v0_8-whitegrid")
+
 # Ascending fidelity. Unknown quants sort to the end rather than erroring.
 QUANT_ORDER = [
     "Q2_K", "Q3_K_S", "Q3_K_M", "Q3_K_L", "Q4_0", "IQ4_XS", "Q4_K_S", "Q4_K_M",
     "Q5_K_S", "Q5_K_M", "Q6_K", "Q8_0", "F16", "BF16", "F32",
 ]
 
-_FIG_KW = {"dpi": 150, "bbox_inches": "tight"}
+_FIG_KW = {"dpi": 150, "bbox_inches": "tight", "facecolor": "white"}
+
+_COLOR_BASE    = "#2563eb"   # blue
+_COLOR_ABLIT   = "#dc2626"   # red
+_COLOR_COMPLY  = "#16a34a"   # green
+_COLOR_HEDGE   = "#d97706"   # amber
+_COLOR_REFUSE  = "#dc2626"   # red
+
+# Abliteration marker suffixes that appear in model names.
+_ABLIT_MARKERS = ("uncensored", "abliterat", "heretic", "decensored", "deccp")
+
+
+def _base_model_name(name: str) -> str:
+    """Strip abliteration suffix to recover the base model family name."""
+    lower = name.lower()
+    for marker in _ABLIT_MARKERS:
+        idx = lower.find(marker)
+        if idx != -1:
+            return name[:idx].strip("-_ ")
+    return name
 
 
 def quant_rank(quant: str | None) -> int:
@@ -123,18 +144,25 @@ def _sweep(groups: dict[tuple, GroupStats]) -> list[GroupStats]:
     return sorted(best, key=lambda g: quant_rank(g.quant))
 
 
+def _style_ax(ax, fig) -> None:
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("#f9fafb")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+
 def _curve(sweep: list[GroupStats], categories: list[str], title: str, path: Path) -> Path:
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(9, 5))
+    _style_ax(ax, fig)
     quants = [g.quant for g in sweep]
     for cat in categories:
         ys = [g.categories[cat].rate * 100 if cat in g.categories
               and g.categories[cat].rate is not None else None for g in sweep]
-        ax.plot(quants, ys, marker="o", label=cat)
-    ax.set_ylabel("pass rate (%)")
+        ax.plot(quants, ys, marker="o", linewidth=2.0, markersize=7, label=cat)
+    ax.set_ylabel("pass rate (%)", fontsize=10)
     ax.set_ylim(0, 105)
-    ax.set_title(title)
-    ax.grid(True, alpha=0.3)
-    ax.legend(fontsize=8)
+    ax.set_title(title, fontsize=12, fontweight="bold", pad=12)
+    ax.legend(fontsize=8, framealpha=0.9)
     fig.savefig(path, **_FIG_KW)
     plt.close(fig)
     return path
@@ -168,14 +196,31 @@ def chart_toolcall_curve(conn, out_dir: Path) -> Path | str:
 
 
 def _matched_pair(groups: dict[tuple, GroupStats]) -> tuple[GroupStats, GroupStats] | None:
-    """A (base, abliterated) pair at the same quant, preferring higher-fidelity quants."""
-    base = {g.quant: g for g in groups.values() if g.lineage == "base" and g.quant}
-    ablit = {g.quant: g for g in groups.values() if g.lineage == "abliterated" and g.quant}
-    shared = sorted(set(base) & set(ablit), key=quant_rank)
-    if not shared:
-        return None
-    q = shared[-1]
-    return base[q], ablit[q]
+    """A (base, abliterated) pair from the same model family at the same quant.
+
+    Matches by stripping abliteration markers from the abliterated model name to recover
+    the base family name, then pairing with the base group that shares that name.
+    Prefers the highest-fidelity quant available across all valid pairs.
+    """
+    base_by_name: dict[str, dict[str, GroupStats]] = {}  # {model_name: {quant: group}}
+    for g in groups.values():
+        if g.lineage == "base" and g.quant:
+            base_by_name.setdefault(g.model_name, {})[g.quant] = g
+
+    best: tuple[GroupStats, GroupStats] | None = None
+    best_rank = -1
+    for g in groups.values():
+        if g.lineage != "abliterated" or not g.quant:
+            continue
+        family = _base_model_name(g.model_name)
+        base_quants = base_by_name.get(family, {})
+        if g.quant not in base_quants:
+            continue
+        r = quant_rank(g.quant)
+        if r > best_rank:
+            best_rank = r
+            best = (base_quants[g.quant], g)
+    return best
 
 
 def chart_ablit_delta(conn, out_dir: Path) -> Path | str:
@@ -190,20 +235,22 @@ def chart_ablit_delta(conn, out_dir: Path) -> Path | str:
 
     x = range(len(cats))
     w = 0.38
-    fig, ax = plt.subplots(figsize=(max(8, 1.1 * len(cats)), 5))
+    fig, ax = plt.subplots(figsize=(max(9, 1.2 * len(cats)), 5))
+    _style_ax(ax, fig)
     rb = [b.categories[c].rate * 100 for c in cats]
     ra = [a.categories[c].rate * 100 for c in cats]
-    ax.bar([i - w / 2 for i in x], rb, w, label=f"base [{b.quant}]", color="#4878a8")
-    ax.bar([i + w / 2 for i in x], ra, w, label=f"abliterated [{a.quant}]", color="#c44e52")
+    ax.bar([i - w / 2 for i in x], rb, w, label=f"base [{b.quant}]", color=_COLOR_BASE, alpha=0.9)
+    ax.bar([i + w / 2 for i in x], ra, w, label=f"abliterated [{a.quant}]", color=_COLOR_ABLIT, alpha=0.9)
     for i, c in enumerate(cats):
-        ax.annotate(f"{ra[i] - rb[i]:+.0f}pp", (i, max(rb[i], ra[i]) + 2),
-                    ha="center", fontsize=8, fontweight="bold")
-    ax.set_xticks(list(x), cats, rotation=30, ha="right", fontsize=8)
-    ax.set_ylabel("pass rate (%)")
-    ax.set_ylim(0, 112)
-    ax.set_title(f"{b.model_name} - what abliteration cost, by category")
-    ax.grid(True, axis="y", alpha=0.3)
-    ax.legend()
+        delta = ra[i] - rb[i]
+        color = "#15803d" if delta > 0 else ("#dc2626" if delta < -1 else "#6b7280")
+        ax.annotate(f"{delta:+.0f}pp", (i, max(rb[i], ra[i]) + 2),
+                    ha="center", fontsize=8, fontweight="bold", color=color)
+    ax.set_xticks(list(x), cats, rotation=35, ha="right", fontsize=8)
+    ax.set_ylabel("pass rate (%)", fontsize=10)
+    ax.set_ylim(0, 115)
+    ax.set_title(f"{b.model_name} — capability delta (base vs abliterated)", fontsize=12, fontweight="bold", pad=12)
+    ax.legend(framealpha=0.9)
     path = out_dir / "ablit_delta.png"
     fig.savefig(path, **_FIG_KW)
     plt.close(fig)
@@ -216,25 +263,33 @@ def chart_refusal_profile(conn, out_dir: Path) -> Path | str:
         return "no refusal-graded results yet"
     groups = sorted(groups, key=lambda g: (g.lineage != "base", quant_rank(g.quant)))
 
-    labels = [f"{g.lineage}\n[{g.quant}]" for g in groups]
+    def _short_name(g: GroupStats) -> str:
+        name = g.model_name
+        # Trim long prefixes like "LFM2.5-1.2B-Instruct" → "LFM2.5-1.2B"
+        parts = name.split("-")
+        short = "-".join(parts[:3]) if len(parts) > 3 else name
+        return f"{short}\n[{g.quant}]"
+
+    labels = [_short_name(g) for g in groups]
     order = ["complied", "hedged", "refused"]
-    colors = {"complied": "#55a868", "hedged": "#dd8452", "refused": "#c44e52"}
+    colors = {"complied": _COLOR_COMPLY, "hedged": _COLOR_HEDGE, "refused": _COLOR_REFUSE}
     counts = [g.label_counts() for g in groups]
     totals = [sum(c.values()) for c in counts]
 
-    fig, ax = plt.subplots(figsize=(max(7, 1.2 * len(groups)), 5))
+    fig, ax = plt.subplots(figsize=(max(8, 1.4 * len(groups)), 5))
+    _style_ax(ax, fig)
     bottom = [0.0] * len(groups)
     for lab in order:
         vals = [100 * c.get(lab, 0) / t for c, t in zip(counts, totals)]
-        ax.bar(labels, vals, bottom=bottom, label=lab, color=colors[lab])
+        ax.bar(labels, vals, bottom=bottom, label=lab, color=colors[lab], alpha=0.92)
         for i, v in enumerate(vals):
             if v >= 6:
                 ax.annotate(f"{v:.0f}%", (i, bottom[i] + v / 2),
-                            ha="center", va="center", fontsize=9, color="white")
+                            ha="center", va="center", fontsize=9, fontweight="bold", color="white")
         bottom = [b + v for b, v in zip(bottom, vals)]
-    ax.set_ylabel("share of refusal-eval prompts (%)")
-    ax.set_title("Refusal profile - complied / hedged / refused")
-    ax.legend(loc="lower right")
+    ax.set_ylabel("share of refusal-eval prompts (%)", fontsize=10)
+    ax.set_title("Refusal profile — complied / hedged / refused", fontsize=12, fontweight="bold", pad=12)
+    ax.legend(loc="lower right", framealpha=0.9)
     path = out_dir / "refusal_profile.png"
     fig.savefig(path, **_FIG_KW)
     plt.close(fig)
@@ -245,21 +300,23 @@ def chart_pareto(conn, out_dir: Path) -> Path | str:
     points = []
     for g in merged_stats(conn).values():
         rate, tps = g.capability_rate(), g.avg_tps()
-        if g.quant and rate is not None and tps:
+        # Skip points with implausibly low tok/s - these are artefacts of multi-worker
+        # runs where each slot ran at (total_tps / n_workers) rather than full speed.
+        if g.quant and rate is not None and tps and tps >= 20:
             points.append((g, rate, tps))
     if len(points) < 3:
         return "needs >=3 runs with capability results"
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(9, 5))
+    _style_ax(ax, fig)
     for g, rate, tps in points:
         gb = (g.model_size_bytes or 0) / 1e9
-        color = "#c44e52" if g.lineage == "abliterated" else "#4878a8"
-        ax.scatter(tps, rate * 100, s=120 * max(gb, 0.3), color=color, alpha=0.75, zorder=3)
+        color = _COLOR_ABLIT if g.lineage == "abliterated" else _COLOR_BASE
+        ax.scatter(tps, rate * 100, s=140 * max(gb, 0.3), color=color, alpha=0.80, zorder=3, edgecolors="white", linewidths=0.5)
         ax.annotate(f" {g.quant} ({gb:.1f} GB)", (tps, rate * 100), fontsize=9)
-    ax.set_xlabel("generation speed (tok/s, server-reported)")
-    ax.set_ylabel("overall capability pass rate (%)")
-    ax.set_title("Quality vs speed - where the knee is (marker size = file size)")
-    ax.grid(True, alpha=0.3)
+    ax.set_xlabel("generation speed (tok/s, server-reported)", fontsize=10)
+    ax.set_ylabel("overall capability pass rate (%)", fontsize=10)
+    ax.set_title("Quality vs speed — where the knee is (marker size = file size)", fontsize=12, fontweight="bold", pad=12)
     path = out_dir / "pareto.png"
     fig.savefig(path, **_FIG_KW)
     plt.close(fig)
@@ -275,14 +332,14 @@ def chart_ppl_curve(conn, out_dir: Path) -> Path | str:
     if len(chunk_counts) > 1:
         return f"mixed ppl_chunks {sorted(chunk_counts)} - values not comparable; re-measure"
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(9, 5))
+    _style_ax(ax, fig)
     quants = [g.quant for g in sweep]
-    ax.plot(quants, [g.ppl for g in sweep], marker="o", color="#4878a8")
+    ax.plot(quants, [g.ppl for g in sweep], marker="o", linewidth=2.0, markersize=7, color=_COLOR_BASE)
     for g in sweep:
         ax.annotate(f" {g.ppl:.2f}", (g.quant, g.ppl), fontsize=9)
-    ax.set_ylabel(f"WikiText-2 perplexity ({sweep[0].ppl_chunks} chunks, lower = better)")
-    ax.set_title(f"{sweep[0].model_name} ({sweep[0].lineage}) - perplexity vs quantization")
-    ax.grid(True, alpha=0.3)
+    ax.set_ylabel(f"WikiText-2 perplexity ({sweep[0].ppl_chunks} chunks, lower = better)", fontsize=10)
+    ax.set_title(f"{sweep[0].model_name} ({sweep[0].lineage}) — perplexity vs quantization", fontsize=12, fontweight="bold", pad=12)
     path = out_dir / "ppl_curve.png"
     fig.savefig(path, **_FIG_KW)
     plt.close(fig)
