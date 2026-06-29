@@ -485,12 +485,61 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0 if all(c.ok for c in checks) else 1
 
 
+def cmd_eval(args: argparse.Namespace) -> int:
+    from .eval import run_eval
+
+    try:
+        run_eval(
+            server_url=args.server,
+            model_name=args.model_name,
+            base_model_name=getattr(args, "base", None),
+            judge=getattr(args, "judge", None),
+            api_key=getattr(args, "api_key", None),
+            out=getattr(args, "out", None),
+            tests_dir=args.tests,
+            hardware=args.hardware,
+            workers=args.workers,
+            suite_defaults=getattr(args, "suite_defaults", {}),
+        )
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="crucible", description=__doc__)
     parser.add_argument("--config", default="crucible.yaml", help="optional YAML defaults file")
     parser.add_argument("--no-banner", action="store_true", help="suppress the CLI banner")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    # ── eval: the primary entry point ──────────────────────────────────────────
+    p_eval = sub.add_parser(
+        "eval",
+        help="run → grade → model-card in one command (the recommended starting point)",
+    )
+    p_eval.add_argument("--server", required=True, metavar="URL",
+                        help="OpenAI-compatible server URL (e.g. http://localhost:11434/v1)")
+    p_eval.add_argument("--model-name", required=True, dest="model_name", metavar="NAME",
+                        help="model name to send in the API payload")
+    p_eval.add_argument("--base", default=None, metavar="NAME",
+                        help="base model name for delta comparison (optional, external server only)")
+    p_eval.add_argument("--judge", default=None,
+                        help="judge preset: 'claude', 'openai', 'deepseek', or a URL "
+                             "(auto-detected from ANTHROPIC_API_KEY/OPENAI_API_KEY/DEEPSEEK_API_KEY)")
+    p_eval.add_argument("--api-key", default=None, dest="api_key",
+                        help="judge API key (or set the env var for your provider)")
+    p_eval.add_argument("--out", default=None, metavar="DIR",
+                        help="output directory (default: {model}-{size}-eval/)")
+    p_eval.add_argument("--tests", default="tests",
+                        help="tests directory (default: tests)")
+    p_eval.add_argument("--hardware", default="unknown",
+                        help="hardware tag recorded with the run")
+    p_eval.add_argument("--workers", type=int, default=1,
+                        help="parallel inference slots (default: 1; try 4 for speed)")
+    p_eval.set_defaults(func=cmd_eval)
+
+    # ── other commands ─────────────────────────────────────────────────────────
     p_models = sub.add_parser("models", help="list GGUF files")
     p_models.add_argument("dir", nargs="?", default="models", help="directory to scan (default: models)")
     p_models.set_defaults(func=cmd_models)

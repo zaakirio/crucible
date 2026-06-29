@@ -129,6 +129,144 @@ def render_model_card(
     return "\n".join(lines)
 
 
+def _judge_rows_to_dict(judge_rows: list) -> dict[str, dict]:
+    """Convert judge_results DB rows (from db.get_judge_results) to {category: {c,h,r}} dict."""
+    out: dict[str, dict] = {}
+    judge_model = ""
+    for row in judge_rows:
+        cat = row["category"]
+        out.setdefault(cat, {"complied": 0, "hedged": 0, "refused": 0})
+        out[cat][row["judge_label"]] = out[cat].get(row["judge_label"], 0) + 1
+        if not judge_model:
+            judge_model = row["judge_model"]
+    for cat in out:
+        out[cat]["judge_model"] = judge_model
+    return out
+
+
+def render_delta_model_card(
+    *,
+    base_report: dict,
+    ablit_report: dict,
+    base_judge: list,
+    ablit_judge: list,
+    report_path: str | None = None,
+) -> str:
+    """Render a delta-focused model card comparing base vs abliterated.
+
+    The delta is the centrepiece: refusal shift first, capability regression check second.
+    Scores are not claims of intelligence — they are evidence that abliteration preserved capability.
+    """
+    base_run  = base_report["run"]
+    ablit_run = ablit_report["run"]
+
+    base_judge_dict  = _judge_rows_to_dict(base_judge)
+    ablit_judge_dict = _judge_rows_to_dict(ablit_judge)
+    judge_model = next(
+        (v["judge_model"] for v in ablit_judge_dict.values() if v.get("judge_model")),
+        "LLM judge",
+    )
+
+    # Build category maps
+    base_cats  = {c["category"]: c for c in base_report["categories"]}
+    ablit_cats = {c["category"]: c for c in ablit_report["categories"]}
+
+    from . import db as _db  # local import to avoid circular
+    from datetime import datetime, timezone as _tz
+    date_str = datetime.now(_tz.utc).strftime("%Y-%m-%d")
+
+    lines = [
+        "## Crucible Abliteration Evidence",
+        "",
+        "> Scores below are **regression checks**, not capability claims.",
+        "> The signal is the Δ column — did abliteration shift refusals without breaking anything?",
+        "",
+        f"- **abliterated**: `{Path(ablit_run['model_file']).name}`",
+        f"- **base**: `{Path(base_run['model_file']).name}`",
+        f"- judge: `{judge_model}`",
+        f"- hardware: `{ablit_run['hardware'] or '-'}`",
+        f"- date: `{date_str}`",
+        f"- Crucible: `{ablit_run.get('crucible_version') or '-'}`",
+        "",
+    ]
+
+    # ── Refusal profile delta ──
+    refusal_order = ["sorrybench", "orbench", "xstest", "falsereject", "refusal"]
+    refusal_cats = [c for c in refusal_order
+                    if c in base_judge_dict or c in ablit_judge_dict]
+
+    if refusal_cats:
+        lines += [
+            "### Refusal profile — did abliteration open the model?",
+            "",
+            "| benchmark | base | abliterated | Δ complied |",
+            "|---|---|---|---|",
+        ]
+        for cat in refusal_cats:
+            b = base_judge_dict.get(cat, {"complied": 0, "hedged": 0, "refused": 0})
+            a = ablit_judge_dict.get(cat, {"complied": 0, "hedged": 0, "refused": 0})
+            bn = b["complied"] + b["hedged"] + b["refused"]
+            an = a["complied"] + a["hedged"] + a["refused"]
+            b_str = f"{b['complied']}c / {b['hedged']}h / {b['refused']}r" if bn else "-"
+            a_str = f"{a['complied']}c / {a['hedged']}h / {a['refused']}r" if an else "-"
+            delta_c = a["complied"] - b["complied"]
+            delta_str = (f"**+{delta_c}**" if delta_c > 0
+                         else (f"-{abs(delta_c)}" if delta_c < 0 else "±0"))
+            lines.append(f"| `{cat}` | {b_str} | {a_str} | {delta_str} |")
+        lines.append("")
+
+    # ── Capability delta ──
+    cap_exclude = set(refusal_cats) | {"math", "agent_dialogue", "agent_tool",
+                                        "rag_grounded", "rag_faithfulness"}
+    cap_cats = [c for c in sorted(set(base_cats) | set(ablit_cats))
+                if c not in cap_exclude
+                and (base_cats.get(c, {}).get("n_graded", 0) or
+                     ablit_cats.get(c, {}).get("n_graded", 0))]
+
+    if cap_cats:
+        lines += [
+            "### Capability — did abliteration break anything?",
+            "",
+            "| category | n | base | abliterated | Δ |",
+            "|---|---|---|---|---|",
+        ]
+        for cat in cap_cats:
+            bc = base_cats.get(cat)
+            ac = ablit_cats.get(cat)
+            if bc and bc["n_graded"]:
+                b_pct = 100 * bc["n_passed"] / bc["n_graded"]
+                b_str = f"{b_pct:.0f}%"
+                n = bc["n_graded"]
+            else:
+                b_str, n = "-", "-"
+            if ac and ac["n_graded"]:
+                a_pct = 100 * ac["n_passed"] / ac["n_graded"]
+                a_str = f"{a_pct:.0f}%"
+                if bc and bc["n_graded"]:
+                    delta = a_pct - b_pct
+                    if abs(delta) < 1:
+                        d_str = "±0"
+                    elif delta > 0:
+                        d_str = f"**+{delta:.0f}pp**"
+                    else:
+                        d_str = f"{delta:.0f}pp"
+                else:
+                    d_str = "-"
+            else:
+                a_str, d_str = "-", "-"
+            lines.append(f"| `{cat}` | {n} | {b_str} | {a_str} | {d_str} |")
+        lines.append("")
+
+    lines += [
+        "---",
+        f"*Generated by [crucible-eval](https://github.com/zaakirio/crucible).*",
+    ]
+    if report_path:
+        lines.append(f"*Full evidence report: `{report_path}`*")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def write_model_card(text: str, path: str | Path | None) -> None:
     if path is not None:
         out = Path(path)

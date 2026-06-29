@@ -24,6 +24,29 @@ so a score shift is attributable.
 pip install crucible-eval
 ```
 
+**Requirements:** any running OpenAI-compatible inference server (Ollama, LM Studio, vLLM, or llama-server).
+No llama.cpp build required.
+
+## Quickstart
+
+```bash
+# single model — generates ornith-9b-eval/model-card.md
+crucible eval \
+  --server http://localhost:11434/v1 \
+  --model-name ornith-9b-uncensored \
+  --workers 4
+
+# base vs abliterated — delta-focused model card in one command
+crucible eval \
+  --server http://localhost:11434/v1 \
+  --model-name ornith-9b-uncensored \
+  --base ornith-9b-base \
+  --workers 4
+```
+
+Judge is required and auto-detected from your environment:
+`ANTHROPIC_API_KEY` → Claude · `OPENAI_API_KEY` → gpt-4o-mini · `DEEPSEEK_API_KEY` → deepseek-chat
+
 Or from source:
 
 ```bash
@@ -31,9 +54,6 @@ git clone https://github.com/zaakirio/crucible
 cd crucible
 uv sync
 ```
-
-**Requirements:** any running OpenAI-compatible inference server (Ollama, LM Studio,
-vLLM, or llama-server). No llama.cpp build required.
 
 ## Running evals
 
