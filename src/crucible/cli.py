@@ -457,12 +457,17 @@ def cmd_model_card(args: argparse.Namespace) -> int:
     conn = db.connect(args.db)
     try:
         report = build_run_report(conn, args.run_id, failure_limit=args.failure_limit)
+        text = render_model_card(
+            report,
+            report_path=args.report_path,
+            export_path=args.export_path,
+            conn=conn,
+        )
     except ValueError as e:
         print(str(e), file=sys.stderr)
         return 1
     finally:
         conn.close()
-    text = render_model_card(report, report_path=args.report_path, export_path=args.export_path)
     write_model_card(text, args.out)
     if args.out:
         print(f"  wrote model card evidence -> {args.out}")

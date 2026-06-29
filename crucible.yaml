@@ -13,22 +13,22 @@ gate:
 # Thinking OFF for refusal/instruction tests: we want the model's direct answer, not its
 # reasoning chain. Thinking ON for math/code where reasoning genuinely improves scores.
 suite_defaults:
-  gsm8k:        {max_tokens: 2048, enable_thinking: true}
-  gsm_symbolic: {max_tokens: 2048, enable_thinking: true}
-  math:         {max_tokens: 2048, enable_thinking: true}
-  code:         {max_tokens: 2048, enable_thinking: true}
-  sorrybench:   {max_tokens: 512,  enable_thinking: false}
-  orbench:      {max_tokens: 512,  enable_thinking: false}
-  xstest:       {max_tokens: 512,  enable_thinking: false}
-  falsereject:  {max_tokens: 512,  enable_thinking: false}
-  refusal:      {max_tokens: 512,  enable_thinking: false}
-  instruction:  {max_tokens: 512,  enable_thinking: false}
-  toolcall_single:      {max_tokens: 512,  enable_thinking: false}
-  toolcall_multiple:    {max_tokens: 512,  enable_thinking: false}
-  toolcall_parallel:    {max_tokens: 512,  enable_thinking: false}
-  toolcall_relevance:   {max_tokens: 512,  enable_thinking: false}
-  toolcall_irrelevance: {max_tokens: 512,  enable_thinking: false}
-  agent_dialogue: {max_tokens: 512, enable_thinking: false}
-  agent_tool:     {max_tokens: 512, enable_thinking: false}
-  rag_faithfulness: {max_tokens: 512, enable_thinking: false}
-  rag_grounded:     {max_tokens: 512, enable_thinking: false}
+  gsm8k:        {max_tokens: 512,  enable_thinking: false}
+  gsm_symbolic: {max_tokens: 512,  enable_thinking: false}
+  math:         {max_tokens: 512,  enable_thinking: false}
+  code:         {max_tokens: 512,  enable_thinking: false}
+  sorrybench:   {max_tokens: 128,  enable_thinking: false}
+  orbench:      {max_tokens: 128,  enable_thinking: false}
+  xstest:       {max_tokens: 128,  enable_thinking: false}
+  falsereject:  {max_tokens: 128,  enable_thinking: false}
+  refusal:      {max_tokens: 128,  enable_thinking: false}
+  instruction:  {max_tokens: 128,  enable_thinking: false}
+  toolcall_single:      {max_tokens: 256,  enable_thinking: false}
+  toolcall_multiple:    {max_tokens: 256,  enable_thinking: false}
+  toolcall_parallel:    {max_tokens: 256,  enable_thinking: false}
+  toolcall_relevance:   {max_tokens: 256,  enable_thinking: false}
+  toolcall_irrelevance: {max_tokens: 256,  enable_thinking: false}
+  agent_dialogue: {max_tokens: 256, enable_thinking: false}
+  agent_tool:     {max_tokens: 256, enable_thinking: false}
+  rag_faithfulness: {max_tokens: 256, enable_thinking: false}
+  rag_grounded:     {max_tokens: 256, enable_thinking: false}
