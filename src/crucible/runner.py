@@ -311,9 +311,26 @@ def _result_flags(test: dict, res: ChatResult | None) -> str | None:
     max_tok = test.get("max_tokens", _DEFAULT_MAX_TOKENS)
     if res.completion_tokens >= max_tok - 2:
         flags.append("truncated")
-    if res.completion_tokens < 15 and test.get("grader") != "refusal":
+    # short_response only applies to code_exec: a 2-token response can't contain
+    # a runnable code block. For numeric graders the model may correctly return
+    # just "7" or "42"; for refusal the grader handles brevity directly.
+    if res.completion_tokens < 15 and test.get("grader") == "code_exec":
         flags.append("short_response")
     return ",".join(flags) or None
+
+
+def _prompt_text(test: dict) -> str:
+    """User-facing prompt stored alongside the response for downstream judge/report use."""
+    if test.get("prompt"):
+        return test["prompt"]
+    # multi-turn: extract content of the last user message
+    for source in ("messages", "conversation"):
+        msgs = test.get(source)
+        if msgs:
+            for m in reversed(msgs):
+                if isinstance(m, dict) and m.get("role") == "user":
+                    return m.get("content", "")
+    return ""
 
 
 def _store_result(conn, run_id: int, category: str, test: dict, rep: int,
@@ -333,6 +350,7 @@ def _store_result(conn, run_id: int, category: str, test: dict, rep: int,
         prompt_tokens=res.prompt_tokens if res else None,
         completion_tokens=res.completion_tokens if res else None,
         flags=_result_flags(test, res),
+        prompt_text=_prompt_text(test),
     )
 
 

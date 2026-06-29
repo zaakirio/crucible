@@ -56,6 +56,7 @@ _MIGRATIONS = [
     ("runs", "only_filter", "TEXT"),
     ("runs", "crucible_version", "TEXT"),
     ("results", "flags", "TEXT"),       # comma-separated: 'truncated', 'short_response'
+    ("results", "prompt_text", "TEXT"), # user-facing prompt sent to the model
 ]
 
 
