@@ -1,5 +1,5 @@
 [project]
-name = "crucible-llm"
+name = "crucible-eval"
 dynamic = ["version"]
 description = "A forensic eval workbench for self-hostable models: capability, refusal profiling, and abliteration delta measurement."
 readme = "README.md"
