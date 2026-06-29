@@ -63,6 +63,7 @@ def chat(
     seed: int = 0,
     max_tokens: int = 512,
     timeout_s: float = 300.0,
+    model: str | None = None,
 ) -> ChatResult:
     """Send a chat-completions request and return the assistant text + server-reported timings.
 
@@ -75,9 +76,11 @@ def chat(
         "temperature": temperature,
         "seed": seed,
         "max_tokens": max_tokens,
-        # llama.cpp surfaces its timings block when this is set.
+        # llama.cpp surfaces its timings block when this is set; ignored by other servers.
         "timings_per_token": True,
     }
+    if model:
+        payload["model"] = model
     if tools:
         payload["tools"] = tools
     r = httpx.post(f"{base_url}/v1/chat/completions", json=payload, timeout=timeout_s)

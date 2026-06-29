@@ -22,7 +22,7 @@ from . import db
 from . import __version__
 from .client import ChatResult, ServerError, ToolCall, chat
 from .graders import GradeResult, grade, grade_tool_call
-from .server import llama_cpp_commit, llama_server
+from .server import llama_cpp_commit, llama_server, external_server
 from .retrieval import retrieve_context
 
 # Abort a run after this many back-to-back transport/server errors: once llama-server's
@@ -221,10 +221,11 @@ def _stored_tool_loop_response(first: ChatResult, final: ChatResult) -> str:
 
 
 def _run_agent_tool_test(
-    base_url: str, test: dict, *, docs_dir: str | Path | None = None, max_tokens: int = _DEFAULT_MAX_TOKENS
+    base_url: str, test: dict, *, docs_dir: str | Path | None = None,
+    max_tokens: int = _DEFAULT_MAX_TOKENS, model: str | None = None,
 ) -> tuple[ChatResult, GradeResult]:
     messages = test_messages(test, docs_dir=docs_dir)
-    first = chat(base_url, messages, tools=test.get("tools"), max_tokens=max_tokens)
+    first = chat(base_url, messages, tools=test.get("tools"), max_tokens=max_tokens, model=model)
     call_grade = grade_tool_call(
         {
             "grader": "tool_call",
@@ -242,7 +243,8 @@ def _run_agent_tool_test(
         return first, GradeResult(passed=False, detail="agent_tool test made no tool call")
 
     tool_messages = _tool_result_messages(test, first.tool_calls)
-    final = chat(base_url, [*messages, _assistant_tool_call_message(first), *tool_messages], max_tokens=max_tokens)
+    final = chat(base_url, [*messages, _assistant_tool_call_message(first), *tool_messages],
+                 max_tokens=max_tokens, model=model)
     final.prompt_tokens = _combine_counts(first.prompt_tokens, final.prompt_tokens)
     final.completion_tokens = _combine_counts(first.completion_tokens, final.completion_tokens)
     final.text = _stored_tool_loop_response(first, final)
@@ -255,7 +257,8 @@ def _run_agent_tool_test(
 
 
 def _execute_test(
-    base_url: str, category: str, test: dict, rep: int, docs_dir: str | Path | None
+    base_url: str, category: str, test: dict, rep: int, docs_dir: str | Path | None,
+    model: str | None = None,
 ) -> tuple[str, dict, int, ChatResult | None, GradeResult, int, str, bool]:
     """Run one test against the server. Returns (category, test, rep, res, g, latency_ms, stored, is_error).
 
@@ -266,13 +269,15 @@ def _execute_test(
     t0 = time.perf_counter()
     try:
         if test.get("agent_tool"):
-            res, g = _run_agent_tool_test(base_url, test, docs_dir=docs_dir, max_tokens=max_tokens)
+            res, g = _run_agent_tool_test(base_url, test, docs_dir=docs_dir,
+                                          max_tokens=max_tokens, model=model)
         else:
             res = chat(
                 base_url,
                 test_messages(test, docs_dir=docs_dir),
                 tools=test.get("tools"),
                 max_tokens=max_tokens,
+                model=model,
             )
             g = None
     except ServerError as e:
@@ -333,8 +338,21 @@ def _prompt_text(test: dict) -> str:
     return ""
 
 
+def _resolve_tok_per_sec(res: ChatResult | None, latency_ms: int) -> tuple[float | None, str | None]:
+    """Return (tok_per_sec, timing_source). Falls back to client-side measurement when the
+    server doesn't expose its internal timings (e.g. Ollama, vLLM in external mode)."""
+    if res is None:
+        return None, None
+    if res.tokens_per_second is not None:
+        return res.tokens_per_second, "server"
+    if res.completion_tokens and latency_ms > 0:
+        return res.completion_tokens / (latency_ms / 1000.0), "client"
+    return None, None
+
+
 def _store_result(conn, run_id: int, category: str, test: dict, rep: int,
                   res: ChatResult | None, g: GradeResult, latency_ms: int, stored: str) -> None:
+    tok_per_sec, timing_source = _resolve_tok_per_sec(res, latency_ms)
     db.insert_result(
         conn,
         run_id=run_id,
@@ -346,17 +364,21 @@ def _store_result(conn, run_id: int, category: str, test: dict, rep: int,
         label=g.label,
         detail=g.detail,
         latency_ms=latency_ms,
-        tok_per_sec=res.tokens_per_second if res else None,
+        tok_per_sec=tok_per_sec,
         prompt_tokens=res.prompt_tokens if res else None,
         completion_tokens=res.completion_tokens if res else None,
         flags=_result_flags(test, res),
         prompt_text=_prompt_text(test),
+        timing_source=timing_source,
     )
 
 
 def run_suite(
-    model_path: str | Path,
+    model_path: str | Path | None = None,
     *,
+    server_url: str | None = None,
+    model_name: str | None = None,
+    engine_tag: str | None = None,
     tests_dir: str | Path = "tests",
     db_path: str | Path = "results.db",
     hardware: str = "unknown",
@@ -370,31 +392,66 @@ def run_suite(
     suite_defaults: dict[str, dict] | None = None,
     on_progress=None,
 ) -> int:
-    model_path = Path(model_path).expanduser().resolve()
+    """Run a test suite against a model.
+
+    Two modes:
+      Managed (default): pass model_path. Crucible spawns llama-server, loads the GGUF,
+        runs tests, and tears down cleanly.
+      External: pass server_url + model_name. Crucible connects to an already-running
+        OpenAI-compatible server (Ollama, LM Studio, vLLM, etc.). No spawn/kill.
+        tok/s is measured client-side and stored with timing_source='client'.
+    """
+    if server_url and model_path:
+        raise ValueError("Pass either model_path (managed) or server_url (external), not both.")
+    if server_url and not model_name:
+        raise ValueError("--model is required when using --server (no GGUF to infer name from).")
+    if not server_url and not model_path:
+        raise ValueError("Either model_path or server_url must be provided.")
+
+    external = bool(server_url)
     tests_dir = Path(tests_dir)
     docs_path = Path(docs_dir) if docs_dir is not None else None
     tests = load_tests(tests_dir, only, suite_defaults=suite_defaults)
     if not tests:
         raise SystemExit(f"No tests found under {tests_dir}/")
 
-    name, quant, lineage = parse_model_meta(model_path)
-    llama_commit = llama_cpp_commit()
-    model_sha256 = _file_sha256(model_path)
+    if external:
+        name = model_name
+        quant = None
+        lineage = "unknown"
+        llama_commit = None
+        model_sha256 = None
+        model_size_bytes = None
+        resolved_model_path = server_url  # store URL as the "model file" identifier
+    else:
+        resolved_path = Path(model_path).expanduser().resolve()
+        name, quant, lineage = parse_model_meta(resolved_path)
+        llama_commit = llama_cpp_commit()
+        model_sha256 = _file_sha256(resolved_path)
+        model_size_bytes = resolved_path.stat().st_size
+        resolved_model_path = str(resolved_path)
+
     tests_sha256 = _tree_sha256(tests_dir)
     docs_sha256 = _tree_sha256(docs_path) if docs_path else None
     only_filter = ",".join(sorted(only)) if only else None
 
+    server_ctx = (
+        external_server(server_url)
+        if external
+        else llama_server(Path(model_path).expanduser().resolve(), ngl=ngl, ctx=ctx, n_parallel=workers)
+    )
+
     with (
-        llama_server(model_path, ngl=ngl, ctx=ctx, n_parallel=workers) as srv,
+        server_ctx as srv,
         contextlib.closing(db.connect(db_path)) as conn,
     ):
         run = (
             db.find_resumeable_run(
                 conn,
-                model_file=str(model_path),
+                model_file=resolved_model_path,
                 hardware=hardware,
-                ctx=ctx,
-                ngl=ngl,
+                ctx=None if external else ctx,
+                ngl=None if external else ngl,
                 repeat=repeat,
                 llama_cpp_commit=llama_commit,
                 model_sha256=model_sha256,
@@ -411,23 +468,25 @@ def run_suite(
         else:
             run_id = db.create_run(
                 conn,
-                model_file=str(model_path),
+                model_file=resolved_model_path,
                 model_name=name,
                 quant=quant,
                 lineage=lineage,
                 hardware=hardware,
                 llama_cpp_commit=llama_commit,
-                ctx=ctx,
-                ngl=ngl,
+                ctx=None if external else ctx,
+                ngl=None if external else ngl,
                 repeat=repeat,
                 started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 load_time_s=srv.load_time_s,
-                model_size_bytes=model_path.stat().st_size,
+                model_size_bytes=model_size_bytes,
                 model_sha256=model_sha256,
                 tests_sha256=tests_sha256,
                 docs_sha256=docs_sha256,
                 only_filter=only_filter,
                 crucible_version=__version__,
+                server_url=server_url,
+                engine_tag=engine_tag,
             )
 
         seen = db.result_keys(conn, run_id)
@@ -445,10 +504,14 @@ def run_suite(
             if (test["id"], rep) not in seen
         ]
 
+        # In external mode, pass the model name to the API payload. In managed mode,
+        # llama-server doesn't need it (it serves exactly one model).
+        api_model = model_name if external else None
+
         errors_in_a_row = 0
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {
-                pool.submit(_execute_test, srv.base_url, cat, test, rep, docs_path): (cat, test, rep)
+                pool.submit(_execute_test, srv.base_url, cat, test, rep, docs_path, api_model): (cat, test, rep)
                 for cat, test, rep in pending
             }
             for future in as_completed(futures):

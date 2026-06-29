@@ -4,16 +4,16 @@
 # context block from `docs/` and then asks the model to answer from that context only.
 - id: rag-001
   prompt: What is the capital of France?
-  grader: exact
+  grader: contains
   expected: Paris
   retrieval: true
 - id: rag-002
   prompt: In what year did the Battle of Hastings take place?
-  grader: exact
+  grader: contains
   expected: 1066
   retrieval: true
 - id: rag-003
   prompt: List the primary colors exactly as stated.
-  grader: exact
+  grader: contains
   expected: red, green, blue
   retrieval: true

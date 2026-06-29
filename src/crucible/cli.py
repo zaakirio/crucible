@@ -93,8 +93,16 @@ def _is_label_category(c) -> bool:
 
 def cmd_run(args: argparse.Namespace) -> int:
     _banner(args)
-    model = Path(args.model)
-    print(f"› running suite against {model.name}  (repeat={args.repeat}, hardware={args.hardware})")
+    server_url = getattr(args, "server", None)
+    model_name = getattr(args, "model_name", None)
+    engine_tag = getattr(args, "engine_tag", None)
+
+    if server_url:
+        label = model_name or server_url
+        print(f"› running suite against {label}  (external server: {server_url}, repeat={args.repeat}, hardware={args.hardware})")
+    else:
+        model = Path(args.model)
+        print(f"› running suite against {model.name}  (repeat={args.repeat}, hardware={args.hardware})")
 
     def progress(category, test, rep, g):
         if g.label is not None:
@@ -105,7 +113,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"    {category:11} {test['id']:12}{rep_tag}  {mark}")
 
     run_id = run_suite(
-        model,
+        None if server_url else (Path(args.model) if hasattr(args, "model") and args.model else None),
+        server_url=server_url,
+        model_name=model_name,
+        engine_tag=engine_tag,
         tests_dir=args.tests,
         db_path=args.db,
         hardware=args.hardware,
@@ -380,6 +391,44 @@ def cmd_gate(args: argparse.Namespace) -> int:
     return 0 if result.passed else 1
 
 
+def cmd_grade(args: argparse.Namespace) -> int:
+    from .judge import grade_run, REFUSAL_CATEGORIES
+
+    _banner(args)
+    categories = set(args.categories.split(",")) if args.categories else None
+    cat_label = args.categories or f"all refusal categories ({', '.join(sorted(REFUSAL_CATEGORIES))})"
+    print(f"› grading run #{args.run_id} with judge '{args.judge}'  ({cat_label})")
+
+    def progress(i, total, category, test_id, label):
+        print(f"    [{i:3}/{total}] {category:12} {test_id:16}  {label}")
+
+    conn = db.connect(args.db)
+    try:
+        summary = grade_run(
+            conn,
+            args.run_id,
+            judge=args.judge,
+            api_key=args.api_key,
+            categories=categories,
+            on_progress=progress if args.verbose else None,
+        )
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    finally:
+        conn.close()
+
+    print(f"\n› judge results for run #{args.run_id}  (judge: {args.judge})\n")
+    for cat in sorted(summary):
+        counts = summary[cat]
+        total = sum(counts.values())
+        complied = counts.get("complied", 0)
+        hedged = counts.get("hedged", 0)
+        refused = counts.get("refused", 0)
+        print(f"  {cat:16} {complied} complied / {hedged} hedged / {refused} refused  (n={total})")
+    return 0
+
+
 def cmd_export(args: argparse.Namespace) -> int:
     from .export import export_rows, render_jsonl, write_export
 
@@ -449,7 +498,13 @@ def main(argv: list[str] | None = None) -> int:
     p_smoke.set_defaults(func=cmd_smoke)
 
     p_run = sub.add_parser("run", help="run the test suite against a model and store results")
-    p_run.add_argument("model", help="path to a .gguf file")
+    p_run.add_argument("model", nargs="?", default=None, help="path to a .gguf file (managed mode)")
+    p_run.add_argument("--server", default=None, metavar="URL",
+                       help="external server URL, e.g. http://localhost:11434/v1 (skips llama-server spawn)")
+    p_run.add_argument("--model-name", default=None, dest="model_name", metavar="NAME",
+                       help="model name for the OpenAI API payload (required with --server)")
+    p_run.add_argument("--engine-tag", default=None, dest="engine_tag", metavar="TAG",
+                       help="optional label for the engine recorded with the run (e.g. 'ollama-0.3')")
     p_run.add_argument("--tests", default="tests", help="tests directory (default: tests)")
     p_run.add_argument("--db", default="results.db", help="SQLite path (default: results.db)")
     p_run.add_argument("--hardware", default="m4-pro-24gb", help="hardware tag recorded with the run")
@@ -527,6 +582,18 @@ def main(argv: list[str] | None = None) -> int:
     p_gate.add_argument("--allow-missing-categories", action="store_true",
                         help="do not fail when candidate lacks a baseline category")
     p_gate.set_defaults(func=cmd_gate)
+
+    p_grade = sub.add_parser("grade", help="re-grade refusal responses with an LLM judge (BYOK)")
+    p_grade.add_argument("run_id", type=int, help="stored run id to grade")
+    p_grade.add_argument("--judge", required=True,
+                         help="judge backend: 'deepseek', 'openai', or a full URL (e.g. http://localhost:11434/v1)")
+    p_grade.add_argument("--api-key", default=None, dest="api_key",
+                         help="API key (or set DEEPSEEK_API_KEY / OPENAI_API_KEY env var)")
+    p_grade.add_argument("--categories", default=None,
+                         help="comma-separated categories to grade (default: all refusal categories)")
+    p_grade.add_argument("--db", default="results.db")
+    p_grade.add_argument("-v", "--verbose", action="store_true", help="print each verdict as it arrives")
+    p_grade.set_defaults(func=cmd_grade)
 
     p_export = sub.add_parser("export", help="export raw run artifacts as JSONL")
     p_export.add_argument("run_id", type=int, help="stored run id")

@@ -199,9 +199,9 @@ def _free_port() -> int:
 @dataclass
 class ServerHandle:
     base_url: str
-    model_path: Path
+    model_path: Path | None
     load_time_s: float
-    proc: subprocess.Popen
+    proc: subprocess.Popen | None
 
 
 @contextlib.contextmanager
@@ -258,6 +258,50 @@ def llama_server(
             proc.kill()
         if log_to:
             log_file.close()
+
+
+@contextlib.contextmanager
+def external_server(base_url: str, *, health_timeout_s: float = 10.0):
+    """Yield a ServerHandle for an already-running OpenAI-compatible server at base_url.
+
+    No spawn, no kill, no memory preflight. Just verify the server is reachable and hand
+    back a handle. tok/s will be measured client-side (timing_source='client').
+    """
+    url = base_url.rstrip("/")
+    health_url = f"{url}/health"
+    started = time.monotonic()
+    reachable = False
+    last_err = ""
+    while time.monotonic() - started < health_timeout_s:
+        try:
+            r = httpx.get(health_url, timeout=2.0)
+            if r.status_code < 500:
+                reachable = True
+                break
+        except httpx.HTTPError as e:
+            last_err = str(e)
+        time.sleep(0.5)
+
+    if not reachable:
+        # Many servers (Ollama, vLLM) don't expose /health - fall back to a models list ping.
+        try:
+            r = httpx.get(f"{url}/v1/models", timeout=5.0)
+            reachable = r.status_code < 500
+        except httpx.HTTPError as e:
+            last_err = str(e)
+
+    if not reachable:
+        raise RuntimeError(
+            f"Could not reach server at {url} (tried /health and /v1/models). "
+            f"Last error: {last_err}. Is the server running?"
+        )
+
+    yield ServerHandle(
+        base_url=url,
+        model_path=None,
+        load_time_s=0.0,
+        proc=None,
+    )
 
 
 def _wait_healthy(base_url: str, proc: subprocess.Popen, *, timeout_s: float) -> float:

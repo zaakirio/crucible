@@ -44,6 +44,15 @@ CREATE TABLE IF NOT EXISTS human_labels (
   human_label TEXT NOT NULL,            -- complied/refused/hedged, as a human judged it
   labeled_at  TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS judge_results (
+  id            INTEGER PRIMARY KEY,
+  result_id     INTEGER NOT NULL REFERENCES results(id),
+  judge_name    TEXT NOT NULL,          -- e.g. 'deepseek', 'openai', 'http://localhost:11434'
+  judge_model   TEXT NOT NULL,          -- model ID used for grading
+  label         TEXT NOT NULL,          -- complied/refused/hedged
+  reason        TEXT,                   -- judge's brief explanation
+  graded_at     TEXT NOT NULL
+);
 """
 
 # Columns added after the initial schema shipped: (table, column, type).
@@ -55,8 +64,11 @@ _MIGRATIONS = [
     ("runs", "docs_sha256", "TEXT"),
     ("runs", "only_filter", "TEXT"),
     ("runs", "crucible_version", "TEXT"),
+    ("runs", "server_url", "TEXT"),     # set when run used an external server (--server mode)
+    ("runs", "engine_tag", "TEXT"),     # user-supplied label for the engine (--engine-tag)
     ("results", "flags", "TEXT"),       # comma-separated: 'truncated', 'short_response'
     ("results", "prompt_text", "TEXT"), # user-facing prompt sent to the model
+    ("results", "timing_source", "TEXT"),  # 'server' (llama.cpp timings) | 'client' (measured)
 ]
 
 
@@ -232,6 +244,55 @@ def latest_run_for_model(conn: sqlite3.Connection, model_file: str) -> sqlite3.R
     return conn.execute(
         "SELECT * FROM runs WHERE model_file = ? ORDER BY id DESC LIMIT 1", (model_file,)
     ).fetchone()
+
+
+def insert_judge_result(
+    conn: sqlite3.Connection,
+    result_id: int,
+    judge_name: str,
+    judge_model: str,
+    label: str,
+    reason: str | None,
+    graded_at: str,
+) -> None:
+    conn.execute(
+        "INSERT INTO judge_results (result_id, judge_name, judge_model, label, reason, graded_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (result_id, judge_name, judge_model, label, reason, graded_at),
+    )
+    conn.commit()
+
+
+def get_judge_results(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:
+    """All judge verdicts for a run, joined with the original result metadata."""
+    return conn.execute(
+        """
+        SELECT j.id, j.result_id, j.judge_name, j.judge_model, j.label AS judge_label,
+               j.reason, j.graded_at,
+               r.test_id, r.category, r.label AS keyword_label, r.response
+        FROM judge_results j
+        JOIN results r ON r.id = j.result_id
+        WHERE r.run_id = ?
+        ORDER BY r.category, r.test_id
+        """,
+        (run_id,),
+    ).fetchall()
+
+
+def refusal_results_for_run(
+    conn: sqlite3.Connection, run_id: int, categories: set[str] | None = None
+) -> list[sqlite3.Row]:
+    """All refusal-graded results for a run, optionally filtered to specific categories."""
+    where = "run_id = ? AND label IS NOT NULL"
+    params: list = [run_id]
+    if categories:
+        placeholders = ",".join("?" * len(categories))
+        where += f" AND category IN ({placeholders})"
+        params.extend(sorted(categories))
+    return conn.execute(
+        f"SELECT id, test_id, category, response, label, prompt_text FROM results WHERE {where} ORDER BY category, test_id",
+        params,
+    ).fetchall()
 
 
 def test_flap(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:
