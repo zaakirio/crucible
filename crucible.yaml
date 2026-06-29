@@ -13,8 +13,8 @@ suite_defaults:
   gsm_symbolic: {max_tokens: 2048}
   math:         {max_tokens: 2048}
   code:         {max_tokens: 1024}
-  sorrybench:   {max_tokens: 256}
-  orbench:      {max_tokens: 256}
-  xstest:       {max_tokens: 256}
+  sorrybench:   {max_tokens: 512}
+  orbench:      {max_tokens: 512}
+  xstest:       {max_tokens: 512}
   falsereject:  {max_tokens: 512}
   refusal:      {max_tokens: 256}
