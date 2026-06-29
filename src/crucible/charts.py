@@ -195,8 +195,13 @@ def chart_quant_curve(conn, out_dir: Path) -> Path | str:
     sweep = _sweep(merged_stats(conn))
     if len(sweep) < 3:
         return "needs >=3 quants of one model (run the sweep)"
+    # Exclude toolcall (separate chart) and small hand-written suites where n<20
+    # makes absolute scores noisy and misleading as capability claims.
+    _EXCLUDE = {"math", "agent_dialogue", "agent_tool", "rag_grounded", "rag_faithfulness"}
     cats = sorted({c for g in sweep for c, s in g.categories.items()
-                   if s.rate is not None and not c.startswith("toolcall")})
+                   if s.rate is not None
+                   and not c.startswith("toolcall")
+                   and c not in _EXCLUDE})
     if not cats:
         return "no capability categories yet"
     g0 = sweep[0]
