@@ -107,7 +107,7 @@ wheels = [
 ]
 
 [[package]]
-name = "crucible-eval"
+name = "crucible-llm"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
