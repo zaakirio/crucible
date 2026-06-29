@@ -18,7 +18,13 @@ same tool-call parsing your published GGUFs get.
 Every run records provenance hashes (model file, test suite, llama.cpp commit)
 so a score shift is attributable.
 
-## Quick start
+## Install
+
+```bash
+pip install crucible-eval
+```
+
+Or from source:
 
 ```bash
 git clone https://github.com/zaakirio/crucible
@@ -26,9 +32,8 @@ cd crucible
 uv sync
 ```
 
-**Requirements:** [uv](https://docs.astral.sh/uv/) and any running OpenAI-compatible
-inference server.
-No llama.cpp build required - point Crucible at whatever you already use.
+**Requirements:** any running OpenAI-compatible inference server (Ollama, LM Studio,
+vLLM, or llama-server). No llama.cpp build required.
 
 ## Running evals
 
@@ -182,6 +187,10 @@ They are evidence for this specific setup, not universal claims.
 
 ### LFM2.5-1.2B — base vs Heretic-abliterated (2026-06-29, judge-validated)
 
+![Capability delta — base vs abliterated](charts/ablit_delta.png)
+
+![Refusal profile across quants](charts/refusal_profile.png)
+
 LLM judge (deepseek-chat) results:
 
 | category | base [Q4_K_M] | abliterated [Q4_K_M] | Δ |
@@ -201,6 +210,10 @@ The abliteration effect is concentrated on sorrybench (unsafe instructions) and 
 Parallel calling remains 0/20 across both - a 1.2B capacity limit, not an abliteration artefact.
 
 ### Tool calling — LFM2.5-1.2B quant sweep
+
+![Capability vs quantization](charts/quant_curve.png)
+
+![Tool calling vs quantization](charts/toolcall_curve.png)
 
 | category | Q3_K_M | Q4_K_M | Q5_K_M | Q6_K | Q8_0 | F16 |
 |---|---|---|---|---|---|---|
