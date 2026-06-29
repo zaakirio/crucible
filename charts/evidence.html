@@ -1,0 +1,419 @@
+<title>LFM2.5-1.2B Abliteration Evidence — Crucible</title>
+<meta name="description" content="Forensic eval: LFM2.5-1.2B base vs Heretic-abliterated. Refusal profile and capability, 2026-06-29.">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #ffffff;
+    --surface:  #f6f8fa;
+    --border:   #d0d7de;
+    --border2:  #eaecef;
+    --text:     #1f2328;
+    --muted:    #636c76;
+    --green-fg: #1a7f37;
+    --green-bg: #dafbe1;
+    --red-fg:   #cf222e;
+    --red-bg:   #ffebe9;
+    --neu-fg:   #636c76;
+    --blue:     #0550ae;
+    --purple:   #8250df;
+    --seg-g:    #2da44e;
+    --seg-a:    #bf8700;
+    --seg-r:    #cf222e;
+    --seg-bg:   #eaecef;
+  }
+
+  html { background: var(--bg); color: var(--text); }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 60px;
+    color: var(--text);
+  }
+
+  /* ── header ─────────────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .title { font-size: 18px; font-weight: 600; margin-bottom: 4px; letter-spacing: -.01em; }
+  .subtitle { font-size: 12px; color: var(--muted); }
+
+  .meta-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .pill-label { font-weight: 600; color: var(--text); }
+
+  /* ── stat row ────────────────────────────────────────────── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+  .stat-n {
+    font-size: 26px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat.pos .stat-n { color: var(--green-fg); }
+  .stat.neg .stat-n { color: var(--red-fg);   }
+  .stat.neu .stat-n { color: var(--muted);    }
+  .stat-l { font-size: 11px; color: var(--muted); line-height: 1.4; }
+  .stat-d { font-size: 11px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+  /* ── section heading ─────────────────────────────────────── */
+  .sec {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    margin-top: 28px;
+  }
+  .sec-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .sec-rule { flex: 1; height: 1px; background: var(--border); }
+  .sec-note { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+  /* ── tables ──────────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  thead th {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    text-align: left;
+    white-space: nowrap;
+  }
+  thead th.r { text-align: right; }
+  thead th.c { text-align: center; }
+
+  tbody tr { border-bottom: 1px solid var(--border2); }
+  tbody tr:last-child { border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: var(--surface); }
+
+  td {
+    border-left: 1px solid var(--border2);
+    border-right: 1px solid var(--border2);
+    padding: 7px 10px;
+    vertical-align: middle;
+  }
+  td:first-child { border-left: 1px solid var(--border); }
+  td:last-child  { border-right: 1px solid var(--border); }
+
+  /* group separator rows */
+  .grp-head td {
+    background: var(--surface);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    padding: 4px 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* row label */
+  .row-label { font-weight: 600; color: var(--text); }
+  .row-tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .tag-base  { background: #ddf4ff; color: var(--blue); border: 1px solid #b6e3ff; }
+  .tag-ablit { background: #fbefff; color: var(--purple); border: 1px solid #d8b4fe; }
+
+  /* inline stacked bar */
+  .bar-wrap { display: flex; align-items: center; gap: 6px; }
+  .mini-bar {
+    flex-shrink: 0;
+    height: 14px;
+    width: 160px;
+    border-radius: 2px;
+    overflow: hidden;
+    display: flex;
+    background: var(--seg-bg);
+  }
+  .seg { height: 100%; transition: width .2s; }
+  .bar-nums {
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .c { color: var(--seg-g); font-weight: 600; }
+  .h { color: var(--seg-a); }
+  .r { color: var(--seg-r); }
+
+  /* delta cells */
+  .delta {
+    font-weight: 600;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .delta.pos { color: var(--green-fg); }
+  .delta.neg { color: var(--red-fg); }
+  .delta.neu { color: var(--neu-fg); }
+
+  /* capability pass-rate cells */
+  .pct { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* direction hint */
+  .dir { font-size: 9px; color: var(--muted); margin-left: 2px; }
+
+  /* ── footer ─────────────────────────────────────────────── */
+  .footer {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 24px;
+  }
+  .fitem { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .fitem strong { color: var(--text); font-weight: 500; }
+  code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 10px; }
+</style>
+
+<!-- header -->
+<div class="header">
+  <div>
+    <div class="title">LFM2.5-1.2B-Instruct — Abliteration Evidence</div>
+    <div class="subtitle">Base vs Heretic-abliterated · Q4_K_M · LLM judge (deepseek-chat) · 2026-06-29</div>
+  </div>
+  <div class="meta-pills">
+    <div class="pill"><span class="pill-label">527</span> tests</div>
+    <div class="pill"><span class="pill-label">M4 Pro</span> 24 GB</div>
+    <div class="pill">Crucible <span class="pill-label">0.0.1</span></div>
+  </div>
+</div>
+
+<!-- stat cards -->
+<div class="stats">
+  <div class="stat pos">
+    <div class="stat-n">+26</div>
+    <div class="stat-l">SorryBench complied</div>
+    <div class="stat-d">8 → 34 / 45 unsafe</div>
+  </div>
+  <div class="stat pos">
+    <div class="stat-n">+24</div>
+    <div class="stat-l">OR-Bench complied</div>
+    <div class="stat-d">20 → 44 / 50 over-refusal</div>
+  </div>
+  <div class="stat neg">
+    <div class="stat-n">−21</div>
+    <div class="stat-l">SorryBench refused</div>
+    <div class="stat-d">26 → 5 outright refusals</div>
+  </div>
+  <div class="stat neu">
+    <div class="stat-n">0pp</div>
+    <div class="stat-l">Capability regression</div>
+    <div class="stat-d">no drop clearing noise bar</div>
+  </div>
+</div>
+
+<!-- ── REFUSAL PROFILE ── -->
+<div class="sec">
+  <span class="sec-title">Refusal profile</span>
+  <div class="sec-rule"></div>
+  <span class="sec-note">complied ↑ · refused ↓ · LLM judge · 193 responses</span>
+</div>
+
+<table id="refusal-table">
+  <thead>
+    <tr>
+      <th style="width:200px">Benchmark</th>
+      <th style="width:220px">Profile distribution</th>
+      <th class="r">Complied</th>
+      <th class="r">Hedged</th>
+      <th class="r">Refused</th>
+      <th class="r" style="width:90px">Δ Complied</th>
+    </tr>
+  </thead>
+  <tbody id="refusal-body"></tbody>
+</table>
+
+<!-- ── CAPABILITY ── -->
+<div class="sec">
+  <span class="sec-title">Capability preservation</span>
+  <div class="sec-rule"></div>
+  <span class="sec-note">keyword grader · pass rate % · higher is better ↑</span>
+</div>
+
+<table id="cap-table">
+  <thead>
+    <tr>
+      <th style="width:200px">Category</th>
+      <th class="r">n</th>
+      <th class="r">Base</th>
+      <th class="r">Abliterated</th>
+      <th class="r" style="width:90px">Δ</th>
+    </tr>
+  </thead>
+  <tbody id="cap-body"></tbody>
+</table>
+
+<!-- footer -->
+<div class="footer">
+  <div class="fitem">Model SHA <code>68acd89a0b21…</code></div>
+  <div class="fitem">Tests SHA <code>fe0be791a158…</code></div>
+  <div class="fitem">llama.cpp <code>d1b34251b</code></div>
+  <div class="fitem">ctx <strong>4096</strong> · ngl <strong>99</strong> · workers <strong>4</strong></div>
+</div>
+
+<script>
+const SEG_G = '#2da44e', SEG_A = '#bf8700', SEG_R = '#cf222e';
+
+// ── stacked mini bar SVG ──────────────────────────────────────
+function miniBar(c, h, r, n) {
+  const W = 160, H = 14;
+  const pc = c/n, ph = h/n, pr = r/n;
+  const wc = W*pc, wh = W*ph, wr = W*pr;
+  const rects = [];
+  let x = 0;
+  if (wc > 0) { rects.push(`<rect x="${x.toFixed(1)}" width="${wc.toFixed(1)}" height="${H}" fill="${SEG_G}"/>`); x += wc; }
+  if (wh > 0) { rects.push(`<rect x="${x.toFixed(1)}" width="${wh.toFixed(1)}" height="${H}" fill="${SEG_A}"/>`); x += wh; }
+  if (wr > 0) { rects.push(`<rect x="${x.toFixed(1)}" width="${wr.toFixed(1)}" height="${H}" fill="${SEG_R}"/>`); }
+  return `<svg width="${W}" height="${H}" style="display:block;border-radius:2px;overflow:hidden;flex-shrink:0;">
+    <rect width="${W}" height="${H}" fill="#eaecef"/>
+    ${rects.join('')}
+  </svg>`;
+}
+
+function pct(v, n) { return (v/n*100).toFixed(1)+'%'; }
+function td(html, cls='') { return `<td class="${cls}">${html}</td>`; }
+function tdR(html, cls='') { return `<td style="text-align:right" class="${cls}">${html}</td>`; }
+
+// ── DATA ─────────────────────────────────────────────────────
+const refusal = [
+  { name:'SORRY-Bench',   desc:'unsafe instruction refusals',
+    base:{c:8,  h:11, r:26, n:45}, ablit:{c:34, h:6,  r:5,  n:45} },
+  { name:'OR-Bench Hard', desc:'over-refusal on legit prompts',
+    base:{c:20, h:24, r:6,  n:50}, ablit:{c:44, h:6,  r:0,  n:50} },
+  { name:'FalseReject',   desc:'benign prompts, scary framing',
+    base:{c:1,  h:43, r:6,  n:50}, ablit:{c:22, h:28, r:0,  n:50} },
+  { name:'XSTest',        desc:'mixed safe / unsafe',
+    base:{c:20, h:3,  r:17, n:40}, ablit:{c:24, h:10, r:6,  n:40} },
+];
+
+const cap = [
+  { name:'GSM8K',              n:100, base:61.0,  ablit:66.0  },
+  { name:'GSM-Symbolic',       n:100, base:51.0,  ablit:47.0  },
+  { name:'Code',               n:6,   base:83.3,  ablit:83.3  },
+  { name:'Instruction',        n:7,   base:100.0, ablit:100.0 },
+  { name:'Toolcall single',    n:40,  base:70.0,  ablit:70.0  },
+  { name:'Toolcall multiple',  n:20,  base:50.0,  ablit:50.0  },
+  { name:'Toolcall irrel.',    n:15,  base:60.0,  ablit:66.7  },
+  { name:'RAG faithfulness',   n:4,   base:100.0, ablit:75.0  },
+];
+
+// ── Render refusal table ─────────────────────────────────────
+const rb = document.getElementById('refusal-body');
+
+refusal.forEach(bench => {
+  // group header
+  const gh = document.createElement('tr');
+  gh.className = 'grp-head';
+  gh.innerHTML = `<td colspan="6">${bench.name} <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(${bench.desc})</span></td>`;
+  rb.appendChild(gh);
+
+  // base row
+  const deltaC = bench.ablit.c - bench.base.c;
+  const [brow, arow] = ['base','ablit'].map((which, idx) => {
+    const d = which === 'base' ? bench.base : bench.ablit;
+    const tr = document.createElement('tr');
+    const labelHtml = `<span class="row-label" style="visibility:hidden">x</span>
+      <span class="row-tag ${which === 'base' ? 'tag-base' : 'tag-ablit'}">${which === 'base' ? 'BASE' : 'ABLIT'}</span>`;
+    const barHtml = `<div class="bar-wrap">${miniBar(d.c,d.h,d.r,d.n)}
+      <span class="bar-nums"><span class="c">${d.c}</span> / <span class="h">${d.h}</span> / <span class="r">${d.r}</span></span></div>`;
+    const deltaHtml = idx === 1
+      ? `<span class="delta ${deltaC > 0 ? 'pos' : deltaC < 0 ? 'neg' : 'neu'}">${deltaC > 0 ? '+' : ''}${deltaC}</span>`
+      : '';
+    tr.innerHTML = td(labelHtml) + td(barHtml)
+      + tdR(pct(d.c,d.n)) + tdR(pct(d.h,d.n)) + tdR(pct(d.r,d.n))
+      + tdR(deltaHtml);
+    return tr;
+  });
+
+  // fix the first cell of base row to show bench name
+  brow.querySelector('span.row-label').style.visibility = 'visible';
+  brow.querySelector('span.row-label').textContent = '';
+
+  rb.appendChild(brow);
+  rb.appendChild(arow);
+});
+
+// ── Render capability table ───────────────────────────────────
+const cb = document.getElementById('cap-body');
+
+cap.forEach(cat => {
+  const delta = Math.round((cat.ablit - cat.base) * 10) / 10;
+  const dcls  = delta > 0 ? 'pos' : delta < 0 ? 'neg' : 'neu';
+  const dstr  = delta === 0 ? '±0' : (delta > 0 ? '+' : '') + delta + 'pp';
+  const tr = document.createElement('tr');
+  tr.innerHTML =
+    td(`<span class="row-label">${cat.name}</span>`) +
+    tdR(cat.n) +
+    tdR(cat.base.toFixed(1) + '%') +
+    tdR(cat.ablit.toFixed(1) + '%') +
+    tdR(`<span class="delta ${dcls}">${dstr}</span>`);
+  cb.appendChild(tr);
+});
+</script>

@@ -187,9 +187,9 @@ They are evidence for this specific setup, not universal claims.
 
 ### LFM2.5-1.2B — base vs Heretic-abliterated (2026-06-29, judge-validated)
 
-![Capability delta — base vs abliterated](charts/ablit_delta.png)
+![Evidence report](charts/evidence.png)
 
-![Refusal profile across quants](charts/refusal_profile.png)
+[View interactive report →](charts/evidence.html)
 
 LLM judge (deepseek-chat) results:
 
