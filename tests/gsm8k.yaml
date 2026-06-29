@@ -1,123 +1,178 @@
 # GSM8K (openai/gsm8k, test split) - grade-school math word problems.
-# Deterministic sample of 20 via scripts/seed_tests.py (seed 20260610).
+# Deterministic sample of 100 via scripts/seed_tests.py (seed 20260610).
 # Same dataset as arXiv 2512.13655 / 2601.14277, so deltas are paper-comparable.
 # grader: numeric (extracts the LAST number; prompt asks for it on the last line).
 - id: gsm8k-001
-  prompt: Jessica is trying to figure out how much to pay on all her debts each month. Her student loans
-    have a minimum payment of $300/month, her credit card's minimum is $200/month, and her mortgage's
-    minimum is $500/month. If Jessica wants to pay 50% more than the minimum, how much does she pay in
-    a year? Give the final answer as just the number on the last line.
+  prompt: Jenny buys 1 bag of cookies a week.  The bag has 36 cookies and she puts 4 cookies in her son's
+    lunch box 5 days a week.  Her husband eats 1 cookie a day for 7 days.  Jenny eats the rest of the
+    cookies.  How many cookies does Jenny eat? Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 18000
+  expected: 9
   tolerance: 0.001
 - id: gsm8k-002
-  prompt: Zaid spends 1/4 of his salary on rent, 1/3 on car fuel and donates half of the remaining amount
-    to his favorite charity. He gives his daughter 200$ to use for her weekly expenses and 700$ to his
-    wife to budget for groceries and other household goods. If Zaid earns 6000$ per month, how much money
-    will he still have after all these expenses and donations? Give the final answer as just the number
-    on the last line.
+  prompt: Annabelle is saving for a phone that costs $400. She already has $80 in her savings. Her first
+    job, where she earns $10 per hour, pays her for 20 hours of work. She is also paid for 15 hours of
+    work at her second job, where she earns $5 an hour. In dollars, how much money does Annabelle still
+    need to save? Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 350
+  expected: 45
   tolerance: 0.001
 - id: gsm8k-003
-  prompt: John buys twice as many red ties as blue ties.  The red ties cost 50% more than blue ties.  He
-    spent $200 on blue ties that cost $40 each. How much did he spend on ties? Give the final answer as
-    just the number on the last line.
+  prompt: Alice is 7 years older than Beth, who is 5 years older than Erica. What is the difference between
+    the ages of Alice and Erica, if Erica is 30 years old? Give the final answer as just the number on
+    the last line.
   grader: numeric
-  expected: 800
+  expected: 12
   tolerance: 0.001
 - id: gsm8k-004
-  prompt: Carlos is planting a lemon tree. The tree will cost $90 to plant. Each year it will grow 7 lemons,
-    which he can sell for $1.5 each. It costs $3 a year to water and feed the tree. How many years will
-    it take before he starts earning money on the lemon tree? Give the final answer as just the number
-    on the last line.
-  grader: numeric
-  expected: 13
-  tolerance: 0.001
-- id: gsm8k-005
-  prompt: The marching band is ordering new uniforms. Each uniform comes with a hat that costs $25, a
-    jacket that costs three times as much as the hat, and pants that cost the average of the costs of
-    the hat and jacket. How much does each uniform cost total? Give the final answer as just the number
-    on the last line.
-  grader: numeric
-  expected: 150
-  tolerance: 0.001
-- id: gsm8k-006
-  prompt: Anakin and Locsin went to the beach today. Anakin caught 10 starfish, 6 sea horses, and 3 clownfish.
-    While Locsin caught 5 fewer starfish than Anakin, 3 fewer sea horses than Anakin, and 2 more clownfish
-    than Anakin. How many fish were they able to catch? Give the final answer as just the number on the
-    last line.
-  grader: numeric
-  expected: 32
-  tolerance: 0.001
-- id: gsm8k-007
-  prompt: John buys milk for 2 dollars, eggs for 3 dollars, light bulbs for 3 dollars, cups for 3 dollars,
-    and roach traps for 4 dollars.  If there is a 10% tax on all nonfood items how much did everything
-    cost. Give the final answer as just the number on the last line.
-  grader: numeric
-  expected: 16
-  tolerance: 0.001
-- id: gsm8k-008
-  prompt: A mechanic charges different rates to repair the tires of trucks and cars.  For each truck tire
-    that is repaired, the mechanic will charge $60 and for each car tire that is repaired, the mechanic
-    will charge $40.  On Thursday, the mechanic repairs 6 truck tires and 4 car tires.  On Friday, the
-    mechanic repairs 12 car tries and doesn't repair any truck tires.  How much more revenue did the mechanic
-    earn on the day with higher revenue? Give the final answer as just the number on the last line.
+  prompt: Out of the 200 Grade 5 students, 2/5 are boys and 2/3 of the girls are in the girl scout. How
+    many girls are not in the girl scout? Give the final answer as just the number on the last line.
   grader: numeric
   expected: 40
   tolerance: 0.001
-- id: gsm8k-009
-  prompt: Gunter is trying to count the jelly beans in a jar. He asks his friends how many they think
-    are in the jar. One says 80. Another says 20 more than half the first one. A third says 25% more than
-    the first one. What is their average guess? Give the final answer as just the number on the last line.
+- id: gsm8k-005
+  prompt: Marie ordered one chicken meal that costs $12, 5 packs of milk that costs $3 each, 4 apples
+    that cost $1.50 each, and some boxes of pizza. Marie paid a total of $50. How many boxes of pizza
+    did Marie order if each box costs $8.50? Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 80
+  expected: 2
+  tolerance: 0.001
+- id: gsm8k-006
+  prompt: A pink frog weighs the same as a blue beetle, the same as a green toad, 10 pounds less than
+    a yellow snake, but 20 pounds more than a red bird. If the pink frog weighs 50 pounds, calculate the
+    total weight of a container carrying one of each animal if the container also weighs 20 pounds. Give
+    the final answer as just the number on the last line.
+  grader: numeric
+  expected: 260
+  tolerance: 0.001
+- id: gsm8k-007
+  prompt: Jam has three boxes full of pencils and 2 loose pencils which give a total of 26 pencils. If
+    her sister, Meg, has 46 pencils, how many boxes do Jam and Meg need to store all their pencils? Give
+    the final answer as just the number on the last line.
+  grader: numeric
+  expected: 9
+  tolerance: 0.001
+- id: gsm8k-008
+  prompt: Kelly has 5 quarters and 2 dimes. If she buys a can of pop for 55 cents, how many cents will
+    she have left? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 90
+  tolerance: 0.001
+- id: gsm8k-009
+  prompt: John has 3 boxes.  Each box is 5 inches by 6 inches by 4 inches.  The walls are 1 inch thick.  What
+    is the total inner volume of all 3 boxes? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 72
   tolerance: 0.001
 - id: gsm8k-010
-  prompt: Bailey starts with a certain amount of money. Then she receives a weekly allowance of $5 for
-    8 weeks. At the end of the 8 weeks, if she has a total of $100, how much money did Bailey start with?
-    Give the final answer as just the number on the last line.
+  prompt: Aleena subscribed to a streaming service that charges her $140 per month. If the streaming company
+    charged her the initial amount for the first half of the year and then charged her 10% less money
+    on the other half of the year, calculate the total amount she had paid for the streaming service by
+    the end of the year. Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 60
+  expected: 1596
   tolerance: 0.001
 - id: gsm8k-011
-  prompt: Jimmy has $2 more than twice the money Ethel has. If Ethal has $8, how much money is Jimmy having?
-    Give the final answer as just the number on the last line.
+  prompt: In a candy machine, there are 22 more than four times the number of pink gumballs as there are
+    blue gumballs. If there are 12 blue gumballs how many pink ones are there? Give the final answer as
+    just the number on the last line.
   grader: numeric
-  expected: 18
+  expected: 70
   tolerance: 0.001
 - id: gsm8k-012
-  prompt: Charlie has three times as many Facebook friends as Dorothy. James has four times as many friends
-    on Facebook as Dorothy. If Charlie has 12 friends on Facebook, how many Facebook friends does James
-    have? Give the final answer as just the number on the last line.
+  prompt: Maria buys 8 shares of a stock for $8 each. The stock price increases 50% the first year Maria
+    holds it, then decreases 25% in the second year. What is the final value of all Maria's shares? Give
+    the final answer as just the number on the last line.
   grader: numeric
-  expected: 16
+  expected: 72
   tolerance: 0.001
 - id: gsm8k-013
-  prompt: Candice put 80 post-it notes in her purse before she headed out to her job at the coffee shop.  On
-    her way, she stopped off at the store and purchased a package of Post-it notes;  At work, she placed
-    a single Post-it note on each of 220 different cups of coffee.  If she had 23 post-it notes remaining
-    overall, how many Post-it notes were in the package that she purchased? Give the final answer as just
-    the number on the last line.
+  prompt: Carmen goes to an auction to win an antique desk. She accepts the opening bid of $200 and continues
+    bidding until she wins. The bids on the desk rise by $50 each time and 3 other people each bid once.
+    Carmen bids after each of the 3 other people and eventually wins. How much money, in dollars, does
+    the desk cost her? Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 163
+  expected: 500
   tolerance: 0.001
 - id: gsm8k-014
-  prompt: Morisette and Kael were asked to bring fruits. Morisette brought 5 apples and 8 oranges, while
-    Kael brought twice the amount of apples and half the number of oranges than Morisette. How many fruits
-    do they have in total? Give the final answer as just the number on the last line.
-  grader: numeric
-  expected: 27
-  tolerance: 0.001
-- id: gsm8k-015
-  prompt: Three friends spent $20.25 on 3 tickets to the fair. They also spent $4.50 less on food than
-    on the tickets. They also went on 2 different rides which costs $33 for each ride. If they agreed
-    to split all the costs evenly, how much did each of them pay? Give the final answer as just the number
+  prompt: A 76-star flag has three rows of 8 stars, two rows of 6 stars and the rest are 5-star rows.
+    How many rows of 5 stars are there altogether on the flag? Give the final answer as just the number
     on the last line.
   grader: numeric
-  expected: 34
+  expected: 8
+  tolerance: 0.001
+- id: gsm8k-015
+  prompt: Lee used to be able to run the 400-meter hurdles two seconds faster than Gerald would run the
+    400-meter hurdles.  But Gerald changed his diet, which improved his speed by 10%.  If Lee runs the
+    400-meter hurdles in 38 seconds, how fast can Gerald, with his improved diet, run the 400-meter hurdles,
+    in seconds? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 36
   tolerance: 0.001
 - id: gsm8k-016
+  prompt: Jason has a phone plan of 1000 minutes per month. Every day he has a 15-minute call with his
+    boss, and he's had 300 extra minutes of call this month to other people. How many minutes does Jason
+    have left if this month has 30 days? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 250
+  tolerance: 0.001
+- id: gsm8k-017
+  prompt: Lindsay is doing the laundry, and thinks she has missed some socks. There are 50 socks that
+    need washing. If she washes 10 pairs of socks and 15 loose socks, how many socks has Lindsay missed?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 15
+  tolerance: 0.001
+- id: gsm8k-018
+  prompt: Hallie had dance practice for 1 hour on Tuesdays and 2 hours on Thursdays.  On Saturdays, she
+    had dance practice that lasted twice as long as Tuesday's night class.  How many hours a week did
+    she have dance practice? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 5
+  tolerance: 0.001
+- id: gsm8k-019
+  prompt: Robert wants to buy a bookshelf and a sofa and has received two offers. Furniture United's offer
+    includes a $1,350 advance payment and 6 monthly installments of $350 each. Cozy Homes' offer includes
+    a $1,100 advance payment and 9 monthly installments of $250 each. What is the cost difference between
+    the two offers? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 100
+  tolerance: 0.001
+- id: gsm8k-020
+  prompt: Rose went to the store on Monday and bought 4 cakes. Tuesday she went to a different store and
+    bought three times that number of cakes. On Wednesday she went to another store and bought 5 times
+    the number of cakes she did on Tuesday. How many cakes did she buy after all three days? Give the
+    final answer as just the number on the last line.
+  grader: numeric
+  expected: 76
+  tolerance: 0.001
+- id: gsm8k-021
+  prompt: Marcell and Beatrice are having a contest to see who can eat the most fruit roll-ups, so they
+    unroll as many as they can find. Unfortunately, someone makes a mistake and Beatrice's was two roll-ups
+    wide and 24 rolls up long while Marcell's was 3 roll-ups wide and 14 roll-ups long. If they both ate
+    their entire amount, how many did they eat on average? Give the final answer as just the number on
+    the last line.
+  grader: numeric
+  expected: 45
+  tolerance: 0.001
+- id: gsm8k-022
+  prompt: On Monday, Sue ate 4 times as many cookies as her sister. On Tuesday, she ate twice as many
+    cookies as her sister. Her sister ate 5 cookies on Monday and 13 the next day. If 1 cookie has 200
+    calories, how many more calories did Sue consume than her sister? Give the final answer as just the
+    number on the last line.
+  grader: numeric
+  expected: 5600
+  tolerance: 0.001
+- id: gsm8k-023
+  prompt: Sean is practicing for his role in a theater production. He has to memorize his lines for two
+    scenes and the lyrics to one solo song. His solo song has 54 lines in the lyrics. The first scene
+    has twice the number of lines, but only a third of them are his lines. The second scene has six more
+    lines than the song, and four-fifths of them are his. How many lines does Sean have to memorize? Give
+    the final answer as just the number on the last line.
+  grader: numeric
+  expected: 138
+  tolerance: 0.001
+- id: gsm8k-024
   prompt: Russell works at a pet store and is distributing straw among the rodents. The rats are kept
     in 3 cages in equal groups and each rat is given 6 pieces of straw. There are 10 cages of hamsters
     that are kept alone and each hamster is given 5 pieces of straw. There is also a pen of rabbits where
@@ -127,7 +182,79 @@
   grader: numeric
   expected: 5
   tolerance: 0.001
-- id: gsm8k-017
+- id: gsm8k-025
+  prompt: Janet had 22 green pens and 10 yellow pens. Then she bought 6 bags of blue pens and 2 bags of
+    red pens. There were 9 pens in each bag of blue and 6 pens in each bag of red. How many pens does
+    Janet have now? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 98
+  tolerance: 0.001
+- id: gsm8k-026
+  prompt: Kylar went to the store to buy glasses for his new apartment. One glass costs $5, but every
+    second glass costs only 60% of the price. Kylar wants to buy 16 glasses. How much does he need to
+    pay for them? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 64
+  tolerance: 0.001
+- id: gsm8k-027
+  prompt: Mandy owes Benedict $100. They agreed to have monthly interest of 2%. If Mandy was able to pay
+    it after 3 months, how much should she give to Benedict? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 106
+  tolerance: 0.001
+- id: gsm8k-028
+  prompt: Cecilia just bought a new puppy. According to her veterinarian, she has to feed the puppy 1
+    cup of dog food every day for the first 180 days. Then she has to feed the puppy 2 cups of dog food
+    every day for the rest of its life. If one bag of dog food contains 110 cups, how many bags of dog
+    food will Cecilia use in the first year? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 5
+  tolerance: 0.001
+- id: gsm8k-029
+  prompt: There are 6 trees in Chris's yard.  Ferdinand has half the number of trees that Chris has.  Harry
+    has 5 more than twice the number of trees that Ferdinand has.  How many more trees are in Harry's
+    yard than Ferdinand's yard? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 8
+  tolerance: 0.001
+- id: gsm8k-030
+  prompt: On Tuesday, Peter wants to exercise for twice the amount of time he did on Monday and Sunday
+    combined. On Sunday he exercised for 23 minutes. On Monday he exercised for 16 minutes. How many minutes
+    does he have to exercise on Tuesday to reach his goal? Give the final answer as just the number on
+    the last line.
+  grader: numeric
+  expected: 78
+  tolerance: 0.001
+- id: gsm8k-031
+  prompt: Morgan's dad said that she had $90 budgeted for her birthday party. She wants to make sure she
+    and her friends all get to play one round of mini-golf, have $5 in arcade tokens, and get to ride
+    the go-karts twice. A round of mini-golf is $5. The Go-karts cost $10 a ride. How many friends can
+    she invite? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 2
+  tolerance: 0.001
+- id: gsm8k-032
+  prompt: On Monday, Walt walked 4 miles. Tuesday, he walked 6 times as many miles as he walked on Monday.
+    His total mileage Monday through Wednesday was 41 miles. How many miles did he walk on Wednesday?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 13
+  tolerance: 0.001
+- id: gsm8k-033
+  prompt: James decides to run 3 sprints 3 times a week.  He runs 60 meters each sprint.  How many total
+    meters does he run a week? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 540
+  tolerance: 0.001
+- id: gsm8k-034
+  prompt: John has 10 hectares of a pineapple field. There are 100 pineapples per hectare. John can harvest
+    his pineapples every 3 months. How many pineapples can John harvest within a year? Give the final
+    answer as just the number on the last line.
+  grader: numeric
+  expected: 4000
+  tolerance: 0.001
+- id: gsm8k-035
   prompt: Sandra's neighbor gives her a basket of 9 eggs every time she babysits their daughter. To make
     a Spanish flan, she needs 3 eggs. If Sandra has been tasked to make 15 Spanish flans for her school
     fundraiser, how many times does Sandra have to babysit? Give the final answer as just the number on
@@ -135,25 +262,496 @@
   grader: numeric
   expected: 5
   tolerance: 0.001
-- id: gsm8k-018
-  prompt: Poppy is solving a 1000-piece jigsaw puzzle. She places a quarter of the pieces on the board,
-    then her mom places a third of the remaining pieces. How many jigsaw pieces are left to be placed?
-    Give the final answer as just the number on the last line.
+- id: gsm8k-036
+  prompt: John orders some pizzas to share with his friends.  There are 20 friends in total, and John
+    wants to make sure each can have 4 slices.  Pizzas are only sold sliced into 8 portions.  How many
+    Pizzas does John need to order? Give the final answer as just the number on the last line.
   grader: numeric
-  expected: 500
+  expected: 10
   tolerance: 0.001
-- id: gsm8k-019
-  prompt: Jean has 30 lollipops. Jean eats 2 of the lollipops. With the remaining lollipops, Jean wants
-    to package 2 lollipops in one bag. How many bags can Jean fill? Give the final answer as just the
+- id: gsm8k-037
+  prompt: A company bought $400000 worth of equipment from a retailer business, but pieces of equipment
+    worth 40% of the total number were faulty. If they returned the faulty pieces of equipment to the
+    seller, calculate the total amount of money spent on functioning pieces of equipment. Give the final
+    answer as just the number on the last line.
+  grader: numeric
+  expected: 240000
+  tolerance: 0.001
+- id: gsm8k-038
+  prompt: Sasha notices that prices for lumber have gone up 50% in the last few months after she bought
+    some lumber. Since she has leftovers, she decides to sell them. She has leftover ten 2 x 4 x 10 boards
+    that cost her $10 each. She also has five 4 x 4 x 10 boards she bought for $16 each. If she sells
+    them all, how much profit does she make? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 90
+  tolerance: 0.001
+- id: gsm8k-039
+  prompt: Pancho walks 20 miles a day. Except on weekends when he walks 10 miles. How many miles does
+    he walk in a week? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 120
+  tolerance: 0.001
+- id: gsm8k-040
+  prompt: Meredith is a freelance blogger who writes about health topics and submits to clients each day
+    as her permanent job. A blog article takes an average of 4 hours to research and write about. Last
+    week, she wrote 5 articles on Monday and  2/5 times more articles on Tuesday than on Monday. On Wednesday,
+    she wrote twice the number of articles she wrote on Tuesday. Calculate the total number of hours she
+    spent writing articles in the three days. Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 104
+  tolerance: 0.001
+- id: gsm8k-041
+  prompt: A mother goes shopping. She buys cocoa at $4.20, laundry at $9.45 and a package of pasta at
+    $1.35. She pays $20. How much change does the cashier give back? Give the final answer as just the
     number on the last line.
+  grader: numeric
+  expected: 5
+  tolerance: 0.001
+- id: gsm8k-042
+  prompt: Cars have lined up on the motorway. Some of the cars drive through in the first 15 minutes of
+    the traffic jam, then 20 more cars drive through in the remaining 15 minutes of the jam. 5 cars from
+    the line take an exit so they don't have to drive through the traffic jam. If there were originally
+    30 cars on the motorway, how many cars drove through the traffic jam in the first 15 minutes? Give
+    the final answer as just the number on the last line.
+  grader: numeric
+  expected: 5
+  tolerance: 0.001
+- id: gsm8k-043
+  prompt: Billy is peeling and cutting potatoes in preparation for making potato salad for his big family
+    reunion barbecue. It's a big event, so he has 60 potatoes to get through. The potatoes are roughly
+    the same size, so it takes about the same amount of time to peel and cut each one. It takes Billy
+    about a minute and a half to peel a potato, but only about 5 seconds to cut it up. How long will it
+    take Billy to finish prepping the potatoes? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 95
+  tolerance: 0.001
+- id: gsm8k-044
+  prompt: Nancy is returning her overdue books to the library. She owes $0.50 cents each on 8 books, plus
+    a flat $2.00 fee for having at least one book that's over a week overdue. How much does she have to
+    pay total? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 6
+  tolerance: 0.001
+- id: gsm8k-045
+  prompt: Ralph has a record store where people can trade their own records for new ones. People can trade
+    2 old records for 1 new one. 5 people come in with old records and leave with 7 new records between
+    them. How many old records did the 5 people bring in? Give the final answer as just the number on
+    the last line.
   grader: numeric
   expected: 14
   tolerance: 0.001
-- id: gsm8k-020
-  prompt: Jennie is helping at her mom's office. She has a pile of 60 letters needing stamps, and a pile
-    of letters already stamped. She puts stamps on one-third of the letters needing stamps. If there are
-    now 30 letters in the pile of already-stamped letters, how many were in that pile when Jennie began?
+- id: gsm8k-046
+  prompt: There are 4 snails in one aquarium and 32 snails in another aquarium. The difference between
+    the number of snails in the two aquariums is twice the amount of fish in both aquariums. If both aquariums
+    have the same number of fish in them, how many fish are there in each aquarium? Give the final answer
+    as just the number on the last line.
+  grader: numeric
+  expected: 7
+  tolerance: 0.001
+- id: gsm8k-047
+  prompt: Mr. Tan sold his house for $400 000. He paid the transfer fees that amount to 3% of the selling
+    price and also paid a brokerage fee that is 5% of the selling price. If he also paid $250 000 for
+    the remaining loan amount of the house, how much is Mr. Tan's net proceeds from selling the house?
     Give the final answer as just the number on the last line.
   grader: numeric
+  expected: 118000
+  tolerance: 0.001
+- id: gsm8k-048
+  prompt: Joe's bag of Halloween candy has 25 chocolate bars and 80 candied apples. Each chocolate bar
+    weighs twice as much as each candied apple. If each chocolate bar weighs 40g, how much does Joe's
+    bag of candy weigh, in grams? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 2600
+  tolerance: 0.001
+- id: gsm8k-049
+  prompt: It takes Matthew 3 minutes to dig a small hole for shrubs and 10 minutes to dig a large hole
+    for trees.  How many hours will it take him to dig 30 small holes and 15 large holes? Give the final
+    answer as just the number on the last line.
+  grader: numeric
+  expected: 4
+  tolerance: 0.001
+- id: gsm8k-050
+  prompt: John adopts a dog.  He takes the dog to the groomer, which costs $100.  The groomer offers him
+    a 30% discount for being a new customer.  How much does the grooming cost? Give the final answer as
+    just the number on the last line.
+  grader: numeric
+  expected: 70
+  tolerance: 0.001
+- id: gsm8k-051
+  prompt: Jeans makeup artist charges her $250 an hour.  She requires very expensive makeup for a movie
+    she is in and it takes 6 hours to do each day and she needs it done 4 times a week.  The movie takes
+    5 weeks to finish.  After the movie is done the makeup artist gives Jean a 10% discount because of
+    the amount of work done.  How much did Jean pay? Give the final answer as just the number on the last
+    line.
+  grader: numeric
+  expected: 27000
+  tolerance: 0.001
+- id: gsm8k-052
+  prompt: Four students scored a total of 251 points in a board game. Naomi scored 68 of the points. Yuri
+    scored 10 more than half as many points as Naomi and Brianna scored 17 points more than Naomi. How
+    many points did Jojo score? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 54
+  tolerance: 0.001
+- id: gsm8k-053
+  prompt: "Helena is a mad scientist testing her latest creation, the Lots-of-Limbs Serum. The serum will\
+    \ make the drinker grow an extra arm every three days and an extra leg every five days. After fifteen\
+    \ days, how many new limbs will Helena\u2019s serum cause a person to grow if they drink it? Give\
+    \ the final answer as just the number on the last line."
+  grader: numeric
+  expected: 8
+  tolerance: 0.001
+- id: gsm8k-054
+  prompt: Ruby is 6 times older than Sam. In 9 years, Ruby will be 3 times as old as Sam. How old is Sam
+    now? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 6
+  tolerance: 0.001
+- id: gsm8k-055
+  prompt: Vincent can buy flowers in packages of 3 for $2.50 or in packages of 2 for $1. How much money
+    does he save by buying 18 flowers at the better price? Give the final answer as just the number on
+    the last line.
+  grader: numeric
+  expected: 6
+  tolerance: 0.001
+- id: gsm8k-056
+  prompt: Claire makes a 3 egg omelet every morning for breakfast.  How many dozens of eggs will she eat
+    in 4 weeks? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 7
+  tolerance: 0.001
+- id: gsm8k-057
+  prompt: Stephen placed an online order for groceries.  His final bill came to $40.00.  Because this
+    was through a delivery vendor, they tacked on a 25% fee to his final total and charged him $3.00 in
+    delivery fees.  Stephen also added a $4.00 tip.  After the extra fees, what was the final price of
+    Stephen's groceries? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 57
+  tolerance: 0.001
+- id: gsm8k-058
+  prompt: Jenna and her mother picked some apples from their apple farm. Jenna picked half as many apples
+    as her mom. If her mom got 20 apples, how many apples did they both pick? Give the final answer as
+    just the number on the last line.
+  grader: numeric
+  expected: 30
+  tolerance: 0.001
+- id: gsm8k-059
+  prompt: Steve decides to start eating more tomatoes and decides to grows his own cherry tomatoes.  He
+    eats twice as much as his girlfriend.  He eats 6 per day.  If a vine can produce 3 tomatoes per week
+    how many vines does he need? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 21
+  tolerance: 0.001
+- id: gsm8k-060
+  prompt: Farmer Brown has 60 animals on his farm, all either chickens or cows. He has twice as many chickens
+    as cows. How many legs do the animals have, all together? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 160
+  tolerance: 0.001
+- id: gsm8k-061
+  prompt: Marissa is hiking a 12-mile trail. She took 1 hour to walk the first 4 miles, then another hour
+    to walk the next two miles. If she wants her average speed to be 4 miles per hour, what speed (in
+    miles per hour) does she need to walk the remaining distance? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 6
+  tolerance: 0.001
+- id: gsm8k-062
+  prompt: Lucy sells apples from her orchard at $4 per piece. On Monday, she sold all the apples picked.
+    On Tuesday, she picked 12 apples. Come Wednesday, Lucy picked double the number of apples she did
+    the previous day. If Lucy got $56 from selling the apples picked on Monday, how many apples did she
+    pick over the three days? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 50
+  tolerance: 0.001
+- id: gsm8k-063
+  prompt: Richard lives in an apartment building with 15 floors. Each floor contains 8 units, and 3/4
+    of the building is occupied. What's the total number of unoccupied units In the building? Give the
+    final answer as just the number on the last line.
+  grader: numeric
+  expected: 30
+  tolerance: 0.001
+- id: gsm8k-064
+  prompt: James is in charge of running messages from the office to each teacher's classroom. If he delivers
+    66 messages to Ms. Thompson and 1/3 as many messages to Mr. Yu, how many messages does he deliver
+    total? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 88
+  tolerance: 0.001
+- id: gsm8k-065
+  prompt: "A company spends $15000 on advertising for a year, and then spends a third of that amount on\
+    \ advertising for another year.\_ What's the total amount the company spent on advertising for the\
+    \ two years? Give the final answer as just the number on the last line."
+  grader: numeric
+  expected: 20000
+  tolerance: 0.001
+- id: gsm8k-066
+  prompt: Mark makes custom dog beds. A bed for a Rottweiler takes 8 pounds of stuffing, a bed for a chihuahua
+    takes 2 pounds of stuffing, and a bed for a collie takes the average amount of stuffing between the
+    first two kinds of beds. How many pounds of stuffing does Mark need to make 4 chihuahua beds and 3
+    collie beds? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 23
+  tolerance: 0.001
+- id: gsm8k-067
+  prompt: Sara wants to buy herself a new jacket and 2 pairs of shoes. The jacket she wants costs $30
+    and each pair of shoes cost $20. Sara babysits the neighbor's kids 4 times, earning $5 each time she
+    babysits them. Her parents pay her $4 each time she mows the lawn. If Sara already had $10 saved before
+    she started babysitting, how many times must she mow the lawn before she can afford the jacket and
+    shoes? Give the final answer as just the number on the last line.
+  grader: numeric
   expected: 10
+  tolerance: 0.001
+- id: gsm8k-068
+  prompt: Carol spends 4 hours writing a song, half that much time recording it, and 90 minutes editing
+    it. What percentage of her total work time did she spend editing? Give the final answer as just the
+    number on the last line.
+  grader: numeric
+  expected: 20
+  tolerance: 0.001
+- id: gsm8k-069
+  prompt: Every day, Wendi feeds each of her chickens three cups of mixed chicken feed, containing seeds,
+    mealworms and vegetables to help keep them healthy.  She gives the chickens their feed in three separate
+    meals. In the morning, she gives her flock of chickens 15 cups of feed.  In the afternoon, she gives
+    her chickens another 25 cups of feed.  How many cups of feed does she need to give her chickens in
+    the final meal of the day if the size of Wendi's flock is 20 chickens? Give the final answer as just
+    the number on the last line.
+  grader: numeric
+  expected: 20
+  tolerance: 0.001
+- id: gsm8k-070
+  prompt: James is counting his Pokemon cards. He has 30 fire type, 20 grass type, and 40 water type.
+    If he loses 8 of the water type and buys 14 grass type, what's the percentage chance (rounded to the
+    nearest integer) that a randomly picked card will be a water type? Give the final answer as just the
+    number on the last line.
+  grader: numeric
+  expected: 33
+  tolerance: 0.001
+- id: gsm8k-071
+  prompt: Shelly's 3 kids spent all day at the water park.  Mitchel went down the water slide 30 times.  Anne
+    went down the slide 30% less than Mitchel and Robert went down 4 times as much as Anne.  How many
+    times did Robert go down the water slide? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 84
+  tolerance: 0.001
+- id: gsm8k-072
+  prompt: John has 2 houses with 3 bedrooms each.  Each bedroom has 2 windows each.  There are an additional
+    4 windows in each house not connected to bedrooms.  How many total windows are there between the houses?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 20
+  tolerance: 0.001
+- id: gsm8k-073
+  prompt: Greg has an alarm set to ring three times a day as a reminder. When the alarm goes off, it continues
+    to ring until Greg turns it off. The first time it went off today, it rang four times. The second
+    time it went off, it rang for three times as long as the first time. The third time, it rang for half
+    as long as the second time. How many times did the alarm ring in all? Give the final answer as just
+    the number on the last line.
+  grader: numeric
+  expected: 22
+  tolerance: 0.001
+- id: gsm8k-074
+  prompt: John runs 60 miles a week. He runs 3 days a week.  He runs 3 hours the first day and half as
+    much the other two days he runs.  How fast does he run? Give the final answer as just the number on
+    the last line.
+  grader: numeric
+  expected: 10
+  tolerance: 0.001
+- id: gsm8k-075
+  prompt: The ratio of the electric poles and electric wires needed to connect and supply the electricity
+    in a certain neighborhood is 1:3. If the total number of electric wires needed to connect the electricity
+    in the neighborhood is 45, calculate the total number of electric poles required by an electric company
+    to supply the electricity in the neighborhood. Give the final answer as just the number on the last
+    line.
+  grader: numeric
+  expected: 15
+  tolerance: 0.001
+- id: gsm8k-076
+  prompt: Jake is walking through the Museum of Entomology. He sees 80 spiders with 8 legs each, 90 insects
+    with 6 legs each, and 3 rare mutant invertebrates with 10 legs each. How many legs does Jake see total?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 1210
+  tolerance: 0.001
+- id: gsm8k-077
+  prompt: Dean's mother gave him $28 to go to the toy store. Dean bought 6 toy cars and 5 teddy bears.
+    Each toy car cost $2 and each teddy bear cost $1. His mother then feels generous and decides to give
+    him an extra $10. How much money does Dean have left? Give the final answer as just the number on
+    the last line.
+  grader: numeric
+  expected: 21
+  tolerance: 0.001
+- id: gsm8k-078
+  prompt: Jerry is rolling a six-sided die. How much more likely is it (expressed as a percentage) that
+    he rolls a number greater than 3 than that he rolls two even numbers in a row? Give the final answer
+    as just the number on the last line.
+  grader: numeric
+  expected: 25
+  tolerance: 0.001
+- id: gsm8k-079
+  prompt: Sandy wants to lose as much weight as Joey does but needs 4 weeks to lose the same amount of
+    weight that Joey loses in a single week. If Joey loses 8 pounds in 4 weeks, how many weeks will it
+    take Sandy to lose the same amount of weight? Give the final answer as just the number on the last
+    line.
+  grader: numeric
+  expected: 16
+  tolerance: 0.001
+- id: gsm8k-080
+  prompt: If a classroom has 3 times as many girls as they do boys, and 1/10 as many nongendered children
+    as they do boys, and the classroom has 30 boys.  How many total children does it have? Give the final
+    answer as just the number on the last line.
+  grader: numeric
+  expected: 123
+  tolerance: 0.001
+- id: gsm8k-081
+  prompt: John takes care of 10 dogs.  Each dog takes .5 hours a day to walk and take care of their business.  How
+    many hours a week does he spend taking care of dogs? Give the final answer as just the number on the
+    last line.
+  grader: numeric
+  expected: 35
+  tolerance: 0.001
+- id: gsm8k-082
+  prompt: Erin has 7 lollipops. Her mother gives Erin another 10 lollipops. If Erin gives 3 of her lollipops
+    to Ella, how many lollipops does she have left? Give the final answer as just the number on the last
+    line.
+  grader: numeric
+  expected: 14
+  tolerance: 0.001
+- id: gsm8k-083
+  prompt: Lloyd earns $10 an hour on Math tutoring.  He tutored 5 hours for the first week and 8 hours
+    for the second week. How much did he earn for the first two weeks? Give the final answer as just the
+    number on the last line.
+  grader: numeric
+  expected: 130
+  tolerance: 0.001
+- id: gsm8k-084
+  prompt: In a family of 5, three people eat three eggs each day while the rest eat two eggs each day.
+    If they eat eggs every day, how many eggs will the family consume in a week? Give the final answer
+    as just the number on the last line.
+  grader: numeric
+  expected: 91
+  tolerance: 0.001
+- id: gsm8k-085
+  prompt: Jaime is a computer programmer for a company that currently has employed 100 people. Senior
+    programmers are paid $400 more than junior programmers. If the number of Junior programmers is 2/5
+    of the total number of employees, and they are each paid $2000 per month, calculate the total amount
+    of money the company pays to all the programmers per month. Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 224000
+  tolerance: 0.001
+- id: gsm8k-086
+  prompt: Brian's friend Bobby has 5 fewer than 3 times as many video games as Brian does.  If Brian has
+    20 video games but lost 5 right before the comparison was made, how many does Bobby have? Give the
+    final answer as just the number on the last line.
+  grader: numeric
+  expected: 40
+  tolerance: 0.001
+- id: gsm8k-087
+  prompt: Carlos is planting a lemon tree. The tree will cost $90 to plant. Each year it will grow 7 lemons,
+    which he can sell for $1.5 each. It costs $3 a year to water and feed the tree. How many years will
+    it take before he starts earning money on the lemon tree? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 13
+  tolerance: 0.001
+- id: gsm8k-088
+  prompt: Watson works a 10-hour shift each day, five days a week. He earns $10 per hour and gets a $300
+    bonus each week if the company performs well. How much money did Watson make in April if the company
+    performed very well for the whole month? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 3200
+  tolerance: 0.001
+- id: gsm8k-089
+  prompt: An eraser costs $2 and a pencil costs $3. How much do 6 erasers and 8 pencils cost? Give the
+    final answer as just the number on the last line.
+  grader: numeric
+  expected: 36
+  tolerance: 0.001
+- id: gsm8k-090
+  prompt: Six years ago, when Noah was half as old as Cera, the population of Chile was half what it is
+    now. Currently, Cera is 46 years old. If the population of Chile six years ago was 3000 times the
+    age of Noah, calculate the population of Chile now. Give the final answer as just the number on the
+    last line.
+  grader: numeric
+  expected: 120000
+  tolerance: 0.001
+- id: gsm8k-091
+  prompt: In a dance class of 20 students, 20% enrolled in contemporary dance, 25% of the remaining enrolled
+    in jazz dance, and the rest enrolled in hip-hop dance. What percentage of the entire students enrolled
+    in hip-hop dance? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 60
+  tolerance: 0.001
+- id: gsm8k-092
+  prompt: Sophia is thinking of taking a road trip in her car, and would like to know how far she can
+    drive on a single tank of gas. She has traveled 100 miles since last filling her tank, and she needed
+    to put in 4 gallons of gas to fill it up again. The owner's manual for her car says that her tank
+    holds 12 gallons of gas. How many miles can Sophia drive on a single tank of gas? Give the final answer
+    as just the number on the last line.
+  grader: numeric
+  expected: 300
+  tolerance: 0.001
+- id: gsm8k-093
+  prompt: Charlie had 10 stickers. He bought 21 stickers from a store in the mall and got 23 stickers
+    for his birthday. Then Charlie gave 9 of the stickers to his sister and used 28 to decorate a greeting
+    card. How many stickers does Charlie have left? Give the final answer as just the number on the last
+    line.
+  grader: numeric
+  expected: 17
+  tolerance: 0.001
+- id: gsm8k-094
+  prompt: A basket contains 25 oranges among which 1 is bad, 20% are unripe, 2 are sour and the rest are
+    good. How many oranges are good? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 17
+  tolerance: 0.001
+- id: gsm8k-095
+  prompt: Mary is an avid gardener. Yesterday, she received 18 new potted plants from her favorite plant
+    nursery. She already has 2 potted plants on each of the 40 window ledges of her large country home.
+    Feeling generous, she has decided that she will give 1 potted plant from each ledge to friends and
+    family tomorrow. How many potted plants will Mary remain with? Give the final answer as just the number
+    on the last line.
+  grader: numeric
+  expected: 58
+  tolerance: 0.001
+- id: gsm8k-096
+  prompt: "Rory orders 2 subs for $7.50 each, 2 bags of chips for $1.50 each and 2 cookies for $1.00 each\
+    \ for delivery.  There\u2019s a 20% delivery fee added at check out and she wants to add a $5.00 tip.\
+    \  What will her delivery order cost? Give the final answer as just the number on the last line."
+  grader: numeric
+  expected: 29
+  tolerance: 0.001
+- id: gsm8k-097
+  prompt: John decides to do several activities while out on vacation.  He spends 6 hours boating and
+    half that time swimming.  He also watched 3 different shows which were 2 hours each.  This was 30%
+    of the time he spent.  He spent 40% of his time sightseeing.  How much time did he spend sightseeing?
+    Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 20
+  tolerance: 0.001
+- id: gsm8k-098
+  prompt: 3 customers were kicked out of the Walmart for refusing to wear masks. A number equals to four
+    times that many minus 5 were kicked out for shoplifting.  Three times the number of shoplifters were
+    kicked out for physical violence over goods on sale. If a total of 50 people were kicked out of the
+    Walmart, how many were kicked out for other reasons? Give the final answer as just the number on the
+    last line.
+  grader: numeric
+  expected: 19
+  tolerance: 0.001
+- id: gsm8k-099
+  prompt: A bakery produces 60 loaves of bread each day. Two-thirds of the loaves are sold in the morning
+    and half of what is left is sold equally in the afternoon and evening. How many loaves of bread are
+    sold in the afternoon? Give the final answer as just the number on the last line.
+  grader: numeric
+  expected: 10
+  tolerance: 0.001
+- id: gsm8k-100
+  prompt: Some people got on a bus at the terminal. At the first bus stop, 5 more people got in. Then
+    at the second bus stop, 7 people got down and 8 more got in. If there were a total of 20 people heading
+    to the third stop, how many people got on the bus at the terminal? Give the final answer as just the
+    number on the last line.
+  grader: numeric
+  expected: 14
   tolerance: 0.001

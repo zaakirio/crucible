@@ -304,6 +304,18 @@ def _execute_test(
     return (category, test, rep, res, g, latency_ms, stored, False)
 
 
+def _result_flags(test: dict, res: ChatResult | None) -> str | None:
+    if res is None or res.completion_tokens is None:
+        return None
+    flags = []
+    max_tok = test.get("max_tokens", _DEFAULT_MAX_TOKENS)
+    if res.completion_tokens >= max_tok - 2:
+        flags.append("truncated")
+    if res.completion_tokens < 15 and test.get("grader") != "refusal":
+        flags.append("short_response")
+    return ",".join(flags) or None
+
+
 def _store_result(conn, run_id: int, category: str, test: dict, rep: int,
                   res: ChatResult | None, g: GradeResult, latency_ms: int, stored: str) -> None:
     db.insert_result(
@@ -320,6 +332,7 @@ def _store_result(conn, run_id: int, category: str, test: dict, rep: int,
         tok_per_sec=res.tokens_per_second if res else None,
         prompt_tokens=res.prompt_tokens if res else None,
         completion_tokens=res.completion_tokens if res else None,
+        flags=_result_flags(test, res),
     )
 
 

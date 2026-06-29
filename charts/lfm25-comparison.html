@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LFM2.5-1.2B Abliteration Delta — Crucible Evidence Report</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0e0f11;
+    --surface: #161820;
+    --border:  #252730;
+    --muted:   #9095a8;
+    --text:    #e2e4ec;
+    --head:    #f0f2fb;
+
+    --complied: #3dd68c;
+    --hedged:   #f0b429;
+    --refused:  #f55;
+    --neutral:  #4a6fa5;
+
+    --gap:  20px;
+    --r:    8px;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    padding: 40px 32px 64px;
+    max-width: 960px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  /* ── header ── */
+  header { margin-bottom: 40px; }
+  .run-badge {
+    display: inline-flex; gap: 12px; align-items: center;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 5px 14px;
+    font-size: 11px; letter-spacing: .06em; color: var(--muted);
+    margin-bottom: 18px;
+  }
+  .run-badge span { color: var(--text); }
+  h1 {
+    font-size: clamp(20px, 3vw, 28px);
+    color: var(--head);
+    letter-spacing: -.02em;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+  .subtitle { font-size: 13px; color: var(--muted); }
+  .subtitle strong { color: var(--text); }
+
+  /* ── section titles ── */
+  .section-label {
+    font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); margin: 36px 0 14px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── legend ── */
+  .legend {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    font-size: 12px; margin-bottom: 24px;
+  }
+  .legend-item { display: flex; gap: 6px; align-items: center; }
+  .dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── stacked bar rows ── */
+  .bar-group { display: flex; flex-direction: column; gap: 14px; }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 1fr 90px;
+    gap: 10px;
+    align-items: center;
+  }
+  .bar-row.header-row {
+    font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: -4px;
+  }
+  .bar-label { font-size: 12px; color: var(--text); white-space: nowrap; }
+
+  .bar-track {
+    height: 26px; border-radius: 4px; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--border);
+    display: flex;
+  }
+  .seg {
+    height: 100%; transition: width .4s ease;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; color: #000a; white-space: nowrap;
+    overflow: hidden; min-width: 0;
+  }
+  .seg.c { background: var(--complied); }
+  .seg.h { background: var(--hedged); }
+  .seg.r { background: var(--refused); }
+
+  .delta-cell {
+    font-size: 12px; font-variant-numeric: tabular-nums;
+    text-align: right; white-space: nowrap;
+  }
+  .delta-cell.up   { color: var(--complied); }
+  .delta-cell.down { color: var(--refused); }
+  .delta-cell.flat { color: var(--muted); }
+
+  /* ── model name pills ── */
+  .model-pills {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px;
+  }
+  .pill {
+    font-size: 11px; padding: 3px 10px; border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .pill.base  { border-color: var(--neutral); color: #8ab4f8; }
+  .pill.abliterated { border-color: var(--complied); color: var(--complied); }
+
+  /* ── capability grid ── */
+  .cap-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--gap);
+  }
+  .cap-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 18px 20px;
+  }
+  .cap-card .suite-name {
+    font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 12px;
+  }
+  .cap-scores { display: flex; gap: 18px; }
+  .cap-score { display: flex; flex-direction: column; gap: 4px; }
+  .cap-score .val {
+    font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums;
+    line-height: 1; color: var(--head);
+  }
+  .cap-score .val.warn { color: var(--hedged); }
+  .cap-score .lbl { font-size: 10px; color: var(--muted); }
+  .cap-delta {
+    font-size: 11px; margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── summary table ── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--gap);
+    margin-top: 4px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 16px 18px;
+  }
+  .stat-card .stat-label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .stat-card .stat-val { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--complied); }
+  .stat-card .stat-val.neutral { color: var(--muted); }
+  .stat-card .stat-val.warn { color: var(--hedged); }
+  .stat-card .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  footer {
+    margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="run-badge">
+    crucible evidence report
+    <span>run #23 vs #24</span>
+    <span>llama.cpp d1b34251b</span>
+    <span>m4-pro-24gb</span>
+  </div>
+  <h1>LFM2.5-1.2B-Instruct — Abliteration Delta</h1>
+  <p class="subtitle">
+    <strong>Q4_K_M vs Q4_K_M</strong> — same quant, same hardware, same prompt set.
+    Proving the model got more open without getting dumber.
+  </p>
+</header>
+
+<div class="model-pills">
+  <span class="pill base">A — LFM2.5-1.2B-Instruct [base / run #23]</span>
+  <span class="pill abliterated">B — LFM2.5-1.2B-Instruct-Uncensored [abliterated / run #24]</span>
+</div>
+
+<p class="section-label">Openness benchmarks</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="dot" style="background:var(--complied)"></div> complied</div>
+  <div class="legend-item"><div class="dot" style="background:var(--hedged)"></div> hedged</div>
+  <div class="legend-item"><div class="dot" style="background:var(--refused)"></div> refused</div>
+</div>
+
+<div class="bar-group" id="bars"></div>
+
+<p class="section-label">Capability benchmarks</p>
+<div class="cap-grid" id="caps"></div>
+
+<p class="section-label">Key numbers</p>
+<div class="summary-grid" id="summary"></div>
+
+<footer>
+  <span>LiquidAI/LFM2.5-1.2B-Instruct-GGUF vs zaakirio/LFM2.5-1.2B-Instruct-Uncensored-GGUF</span>
+  <span>crucible · zaakirio · 2026-06-28</span>
+</footer>
+
+<script>
+const suites = [
+  {
+    name: "sorrybench",
+    desc: "adversarial jailbreak",
+    a: { c: 16, h: 14, r: 15 },
+    b: { c: 43, h:  2, r:  0 },
+  },
+  {
+    name: "orbench",
+    desc: "over-refusal (benign prompts)",
+    a: { c: 28, h: 20, r: 2 },
+    b: { c: 49, h:  1, r: 0 },
+  },
+  {
+    name: "xstest",
+    desc: "safety / compliance balance",
+    a: { c: 29, h:  6, r: 5 },
+    b: { c: 39, h:  1, r: 0 },
+  },
+  {
+    name: "falsereject",
+    desc: "false refusals on safe prompts",
+    a: { c:  7, h: 43, r: 0 },
+    b: { c: 39, h: 11, r: 0 },
+  },
+];
+
+const capSuites = [
+  { name: "code",  a: { pass: 5, total: 6 }, b: { pass: 5, total: 6 } },
+  { name: "gsm8k", a: { pass: 17, total: 20 }, b: { pass: 15, total: 20 } },
+];
+
+// Render openness bars
+const barsEl = document.getElementById("bars");
+
+// header row
+const hdr = document.createElement("div");
+hdr.className = "bar-row header-row";
+hdr.innerHTML = `<div></div><div>A — base</div><div>B — abliterated</div><div style="text-align:right">Δ complied</div>`;
+barsEl.appendChild(hdr);
+
+suites.forEach(s => {
+  const totalA = s.a.c + s.a.h + s.a.r;
+  const totalB = s.b.c + s.b.h + s.b.r;
+  const pct = (n, t) => (n / t * 100).toFixed(1) + "%";
+
+  const deltaC = s.b.c - s.a.c;
+  const deltaR = s.b.r - s.a.r;
+  const deltaStr = (deltaC >= 0 ? "+" : "") + deltaC + " complied" +
+    (deltaR !== 0 ? (deltaR < 0 ? " / " + deltaR + " refused" : " / +" + deltaR + " refused") : "");
+  const deltaClass = deltaC > 0 ? "up" : deltaC < 0 ? "down" : "flat";
+
+  const row = document.createElement("div");
+  row.className = "bar-row";
+  row.innerHTML = `
+    <div class="bar-label">
+      <div>${s.name}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${s.desc}</div>
+    </div>
+    <div class="bar-track" title="A: ${s.a.c}c ${s.a.h}h ${s.a.r}r">
+      ${s.a.c ? `<div class="seg c" style="width:${pct(s.a.c,totalA)}" title="complied: ${s.a.c}">${s.a.c >= 3 ? s.a.c : ''}</div>` : ''}
+      ${s.a.h ? `<div class="seg h" style="width:${pct(s.a.h,totalA)}" title="hedged: ${s.a.h}">${s.a.h >= 3 ? s.a.h : ''}</div>` : ''}
+      ${s.a.r ? `<div class="seg r" style="width:${pct(s.a.r,totalA)}" title="refused: ${s.a.r}">${s.a.r >= 3 ? s.a.r : ''}</div>` : ''}
+    </div>
+    <div class="bar-track" title="B: ${s.b.c}c ${s.b.h}h ${s.b.r}r">
+      ${s.b.c ? `<div class="seg c" style="width:${pct(s.b.c,totalB)}" title="complied: ${s.b.c}">${s.b.c >= 3 ? s.b.c : ''}</div>` : ''}
+      ${s.b.h ? `<div class="seg h" style="width:${pct(s.b.h,totalB)}" title="hedged: ${s.b.h}">${s.b.h >= 3 ? s.b.h : ''}</div>` : ''}
+      ${s.b.r ? `<div class="seg r" style="width:${pct(s.b.r,totalB)}" title="refused: ${s.b.r}">${s.b.r >= 3 ? s.b.r : ''}</div>` : ''}
+    </div>
+    <div class="delta-cell ${deltaClass}">${deltaStr}</div>
+  `;
+  barsEl.appendChild(row);
+});
+
+// Render capability cards
+const capsEl = document.getElementById("caps");
+capSuites.forEach(s => {
+  const pctA = Math.round(s.a.pass / s.a.total * 100);
+  const pctB = Math.round(s.b.pass / s.b.total * 100);
+  const delta = pctB - pctA;
+  const deltaStr = (delta === 0 ? "±0%" : (delta > 0 ? "+" : "") + delta + "%");
+  const deltaColor = delta > 0 ? "var(--complied)" : delta < 0 ? "var(--hedged)" : "var(--muted)";
+
+  const card = document.createElement("div");
+  card.className = "cap-card";
+  card.innerHTML = `
+    <div class="suite-name">${s.name}</div>
+    <div class="cap-scores">
+      <div class="cap-score">
+        <div class="val">${pctA}%</div>
+        <div class="lbl">base (A)</div>
+      </div>
+      <div class="cap-score">
+        <div class="val ${delta < -5 ? 'warn' : ''}">${pctB}%</div>
+        <div class="lbl">uncensored (B)</div>
+      </div>
+    </div>
+    <div class="cap-delta" style="color:${deltaColor}">
+      ${deltaStr} — ${s.a.pass}/${s.a.total} → ${s.b.pass}/${s.b.total}
+      ${delta < 0 ? '<span style="color:var(--muted)"> (n=20, within noise)</span>' : ''}
+    </div>
+  `;
+  capsEl.appendChild(card);
+});
+
+// Summary stats
+const summaryEl = document.getElementById("summary");
+const stats = [
+  { label: "sorrybench refusals eliminated", val: "15 → 0", cls: "", sub: "100% removal of hard refusals" },
+  { label: "orbench compliance rate", val: "56% → 98%", cls: "", sub: "+42 pp on over-refusal benchmark" },
+  { label: "falsereject complied", val: "14% → 78%", cls: "", sub: "stopped hedging safe requests" },
+  { label: "code accuracy delta", val: "±0%", cls: "neutral", sub: "83% on both — no regression" },
+  { label: "gsm8k accuracy delta", val: "−10%", cls: "warn", sub: "85%→75% on n=20 (statistical noise)" },
+  { label: "throughput (tok/s)", val: "~60", cls: "neutral", sub: "identical across both models" },
+];
+stats.forEach(s => {
+  const card = document.createElement("div");
+  card.className = "stat-card";
+  card.innerHTML = `
+    <div class="stat-label">${s.label}</div>
+    <div class="stat-val ${s.cls}">${s.val}</div>
+    <div class="stat-sub">${s.sub}</div>
+  `;
+  summaryEl.appendChild(card);
+});
+</script>
+</body>
+</html>

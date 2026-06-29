@@ -55,6 +55,7 @@ _MIGRATIONS = [
     ("runs", "docs_sha256", "TEXT"),
     ("runs", "only_filter", "TEXT"),
     ("runs", "crucible_version", "TEXT"),
+    ("results", "flags", "TEXT"),       # comma-separated: 'truncated', 'short_response'
 ]
 
 
@@ -139,6 +140,19 @@ def category_summary(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]
                AVG(tok_per_sec)                                     AS avg_tps
         FROM results WHERE run_id = ?
         GROUP BY category ORDER BY category
+        """,
+        (run_id,),
+    ).fetchall()
+
+
+def result_flagged(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:
+    """Results with data-quality flags (truncated, short_response) for a run."""
+    return conn.execute(
+        """
+        SELECT category, test_id, rep, flags, completion_tokens, detail
+        FROM results
+        WHERE run_id = ? AND flags IS NOT NULL
+        ORDER BY category, test_id, rep
         """,
         (run_id,),
     ).fetchall()

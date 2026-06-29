@@ -34,6 +34,7 @@ def build_run_report(conn: sqlite3.Connection, run_id: int, *, failure_limit: in
         raise ValueError(f"run #{run_id} not found")
     categories = [_rowdict(r) for r in db.category_summary(conn, run_id)]
     failures = [_rowdict(r) for r in db.result_failures(conn, run_id, limit=failure_limit)]
+    flagged = [_rowdict(r) for r in db.result_flagged(conn, run_id)]
     total_results = sum(c["n_results"] for c in categories)
     total_graded = sum(c["n_graded"] for c in categories)
     total_passed = sum(c["n_passed"] for c in categories)
@@ -51,9 +52,11 @@ def build_run_report(conn: sqlite3.Connection, run_id: int, *, failure_limit: in
             "total_passed": total_passed,
             "pass_rate": (total_passed / total_graded) if total_graded else None,
             "labels": labels,
+            "n_flagged": len(flagged),
         },
         "categories": categories,
         "failures": failures,
+        "flagged": flagged,
         "caveats": [
             "Results are local to the recorded model file, hardware, llama.cpp commit, and test-suite hash.",
             "Raw per-result artifacts can be exported with `crucible export <run_id>`.",
@@ -130,6 +133,14 @@ def render_markdown(report: dict[str, Any]) -> str:
             lines.append(f"- `{f['category']}/{f['test_id']}` rep `{f['rep']}`: {detail}")
     else:
         lines.append("- none recorded")
+
+    if report.get("flagged"):
+        lines.extend(["", "## Data Quality Flags", ""])
+        for f in report["flagged"]:
+            lines.append(
+                f"- `{f['category']}/{f['test_id']}` rep `{f['rep']}`: "
+                f"**{f['flags']}** ({f['completion_tokens']} tokens)"
+            )
 
     lines.extend(["", "## Caveats", ""])
     for caveat in report["caveats"]:

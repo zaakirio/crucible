@@ -80,13 +80,15 @@ def evaluate_gate(
             br, cr = _refusal_rate(b), _refusal_rate(c)
             if br is None or cr is None:
                 continue
-            shift = abs(cr - br)
-            if shift > refusal_threshold:
+            # Only flag increases: a drop in refusal rate is the success signal for
+            # abliteration, not a regression. Gate on over-refusal creep only.
+            increase = cr - br
+            if increase > refusal_threshold:
                 findings.append(
                     GateFinding(
                         "fail",
                         cat,
-                        f"refusal rate shifted {shift * 100:.1f}pp "
+                        f"refusal rate increased {increase * 100:.1f}pp "
                         f"(baseline {br * 100:.1f}%, candidate {cr * 100:.1f}%)",
                     )
                 )

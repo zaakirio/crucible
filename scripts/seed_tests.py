@@ -87,7 +87,7 @@ def fetch_rows(dataset: str, config: str, split: str, total: int) -> list[dict]:
 def seed_gsm8k(n: int) -> int:
     # Fetch a fixed-size pool from the front of the (stable-ordered) test split,
     # then sample deterministically from it.
-    pool = fetch_rows("openai/gsm8k", "main", "test", 200)
+    pool = fetch_rows("openai/gsm8k", "main", "test", 400)
     rng = random.Random(SEED)
     sample = rng.sample(pool, n)
     tests = []
@@ -262,9 +262,9 @@ def seed_sorrybench(n: int) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--gsm8k-n", type=int, default=20)
+    ap.add_argument("--gsm8k-n", type=int, default=100)
     ap.add_argument("--xstest-n", type=int, default=40)
-    ap.add_argument("--gsm-symbolic-n", type=int, default=20)
+    ap.add_argument("--gsm-symbolic-n", type=int, default=100)
     ap.add_argument("--orbench-n", type=int, default=50)
     ap.add_argument("--falsereject-n", type=int, default=50)
     ap.add_argument("--sorrybench-n", type=int, default=45)
