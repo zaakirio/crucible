@@ -9,5 +9,8 @@ build/
 *.log
 .crucible/
 reports/
+reports-*/
+charts-*/
+*-eval/
 .agents/
 skills-lock.json
