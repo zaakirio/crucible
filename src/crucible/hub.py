@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,9 +35,9 @@ def list_ggufs(repo_id: str) -> list[HubFile]:
     url = f"https://huggingface.co/api/models/{repo_id}/tree/main"
     r = httpx.get(url, headers=_auth_headers(), timeout=30, follow_redirects=True)
     if r.status_code == 401:
-        raise SystemExit(f"{repo_id} is gated/private - set $HF_TOKEN (huggingface.co/settings/tokens)")
+        raise RuntimeError(f"{repo_id} is gated/private - set $HF_TOKEN (huggingface.co/settings/tokens)")
     if r.status_code == 404:
-        raise SystemExit(f"No such repo: {repo_id}")
+        raise RuntimeError(f"No such repo: {repo_id}")
     r.raise_for_status()
     return sorted(
         (HubFile(f["path"], f.get("size") or 0) for f in r.json()
@@ -45,12 +46,26 @@ def list_ggufs(repo_id: str) -> list[HubFile]:
     )
 
 
-def download(repo_id: str, file: HubFile, dest_dir: Path) -> Path:
-    """Stream one file to dest_dir with a progress line. Skips if already complete."""
+def download(
+    repo_id: str,
+    file: HubFile,
+    dest_dir: Path,
+    *,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> Path:
+    """Stream one file to dest_dir. Skips if already complete.
+
+    Default (on_progress=None) prints a progress line to stderr, same as always. Pass
+    on_progress(done, total) to drive a different front end (e.g. a TUI progress bar)
+    instead - it's called once per chunk, total is 0 if the server didn't report a size.
+    """
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / Path(file.path).name
     if dest.exists() and file.size and dest.stat().st_size == file.size:
-        print(f"  have  {dest.name} ({file.size / 1e9:.2f} GB) - skipping")
+        if on_progress:
+            on_progress(file.size, file.size)
+        else:
+            print(f"  have  {dest.name} ({file.size / 1e9:.2f} GB) - skipping")
         return dest
 
     url = f"https://huggingface.co/{repo_id}/resolve/main/{file.path}"
@@ -64,10 +79,13 @@ def download(repo_id: str, file: HubFile, dest_dir: Path) -> Path:
             for chunk in r.iter_bytes(chunk_size=1 << 20):
                 f.write(chunk)
                 done += len(chunk)
-                if total:
+                if on_progress:
+                    on_progress(done, total)
+                elif total:
                     pct = 100 * done / total
                     print(f"\r  pull  {dest.name}  {done / 1e9:5.2f}/{total / 1e9:.2f} GB ({pct:3.0f}%)",
                           end="", file=sys.stderr, flush=True)
-    print(file=sys.stderr)
+    if not on_progress:
+        print(file=sys.stderr)
     tmp.rename(dest)
     return dest

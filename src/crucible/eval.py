@@ -5,21 +5,18 @@ Replaces the four-command manual workflow with a single entry point:
     crucible eval --server http://localhost:11434/v1 \\
                   --model-name ornith-9b-uncensored \\
                   [--base ornith-9b-base] \\
-                  [--judge claude]
+                  --judge claude
 
-Judge is required. Auto-detected from environment in priority order:
-  ANTHROPIC_API_KEY → OPENAI_API_KEY → DEEPSEEK_API_KEY
+Judge is required and always explicit - there is no default judge picked from
+whichever env var happens to be set. Its API key comes from --api-key, or from
+the matching env var for a named preset (ANTHROPIC_API_KEY for claude, etc.).
 """
 
 from __future__ import annotations
 
-import contextlib
 import os
 import re
-import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from rich.console import Console
 from rich.progress import (
@@ -33,60 +30,45 @@ from rich.progress import (
 )
 
 from . import db
-from .config import apply_config_defaults, load_config
-from .judge import REFUSAL_CATEGORIES, _resolve_preset, grade_run
+from .judge import _PRESETS as _JUDGE_PRESETS
+from .judge import grade_run
 from .model_card import render_delta_model_card, render_model_card, write_model_card
 from .report import build_run_report, render_markdown, write_report
 from .runner import load_tests, run_suite
 
-console = Console()
-
-# ── judge auto-detection ─────────────────────────────────────────────────────
-
-_JUDGE_PRIORITY = [
-    ("claude",    "ANTHROPIC_API_KEY"),
-    ("openai",    "OPENAI_API_KEY"),
-    ("deepseek",  "DEEPSEEK_API_KEY"),
-]
-
+# ── judge resolution (no defaults) ──────────────────────────────────────────
 
 def detect_judge(explicit_judge: str | None = None,
                  explicit_key: str | None = None) -> tuple[str, str]:
-    """Return (judge_name, api_key). Raises if nothing can be resolved."""
-    if explicit_judge and explicit_key:
+    """Return (judge_name, api_key) for an explicitly named judge or URL.
+
+    Never guesses a judge from whichever env var happens to be set - --judge is
+    always required. Only the *key* for a named judge may come from its env var.
+    """
+    if not explicit_judge:
+        raise ValueError(
+            f"No judge specified. Pass --judge <{'|'.join(_JUDGE_PRESETS)}|URL> --api-key <key>, "
+            "or set the matching env var for a named preset "
+            f"({', '.join(p['env_key'] for p in _JUDGE_PRESETS.values())})."
+        )
+    if explicit_key:
         return explicit_judge, explicit_key
 
-    # Explicit judge name without key → look up its env var
-    if explicit_judge:
-        for name, env_var in _JUDGE_PRIORITY:
-            if name == explicit_judge:
-                key = explicit_key or os.environ.get(env_var, "")
-                if key:
-                    return name, key
-                raise ValueError(
-                    f"Judge '{explicit_judge}' requires an API key. "
-                    f"Set {env_var} or pass --api-key."
-                )
-        # Treat as URL judge
-        if explicit_judge.startswith("http"):
-            if not explicit_key:
-                raise ValueError(
-                    "URL judge requires --api-key (or set any supported env var)."
-                )
-            return explicit_judge, explicit_key
-
-    # Auto-detect from environment
-    for name, env_var in _JUDGE_PRIORITY:
+    if explicit_judge in _JUDGE_PRESETS:
+        env_var = _JUDGE_PRESETS[explicit_judge]["env_key"]
         key = os.environ.get(env_var, "")
         if key:
-            return name, key
+            return explicit_judge, key
+        raise ValueError(
+            f"Judge '{explicit_judge}' requires an API key. "
+            f"Set {env_var} or pass --api-key."
+        )
+
+    if explicit_judge.startswith("http"):
+        raise ValueError("URL judge requires --api-key (or set any supported env var).")
 
     raise ValueError(
-        "No judge API key found. Set one of:\n"
-        "  ANTHROPIC_API_KEY  → uses Claude (recommended)\n"
-        "  OPENAI_API_KEY     → uses gpt-4o-mini\n"
-        "  DEEPSEEK_API_KEY   → uses deepseek-chat\n"
-        "Or pass --judge <name> --api-key <key>."
+        f"Unknown judge '{explicit_judge}'. Use a preset ({', '.join(_JUDGE_PRESETS)}) or a full URL."
     )
 
 
@@ -132,9 +114,39 @@ def output_dir_name(model_name: str, out: str | Path | None = None) -> Path:
     return Path("-".join(parts))
 
 
-# ── rich progress factory ─────────────────────────────────────────────────────
+# ── progress reporting ───────────────────────────────────────────────────────
+#
+# run_eval() drives its progress through an EvalReporter instead of talking to Rich
+# directly, so a different front end (e.g. the Textual app in tui.py) can observe the
+# exact same run→grade→report pipeline without duplicating its orchestration.
 
-def _make_progress() -> Progress:
+class EvalReporter:
+    """No-op base: every hook is optional to override."""
+
+    def __enter__(self) -> "EvalReporter":
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        pass
+
+    def header(self, *, out_dir: Path, model_name: str,
+               base_model_name: str | None, judge_name: str) -> None:
+        pass
+
+    def phase_start(self, label: str, total: int) -> None:
+        pass
+
+    def phase_tick(self, detail: str) -> None:
+        pass
+
+    def phase_done(self) -> None:
+        pass
+
+    def footer(self, *, card_path: Path, report_path: Path) -> None:
+        pass
+
+
+def _make_progress(console: Console) -> Progress:
     return Progress(
         SpinnerColumn(spinner_name="dots"),
         TextColumn("[bold]{task.description}"),
@@ -147,6 +159,56 @@ def _make_progress() -> Progress:
         console=console,
         transient=False,
     )
+
+
+class RichEvalReporter(EvalReporter):
+    """Default reporter: renders exactly what `crucible eval` has always printed."""
+
+    def __init__(self) -> None:
+        self._console = Console()
+        self._progress: Progress | None = None
+        self._task: TaskID | None = None
+        self._task_total = 0
+
+    def __enter__(self) -> "RichEvalReporter":
+        self._progress = _make_progress(self._console)
+        self._progress.__enter__()
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        if self._progress is not None:
+            self._progress.__exit__(*exc_info)
+
+    def header(self, *, out_dir: Path, model_name: str,
+               base_model_name: str | None, judge_name: str) -> None:
+        self._console.print()
+        self._console.print(f"[bold]crucible eval[/bold]  →  [cyan]{out_dir}/[/cyan]")
+        self._console.print(
+            f"  model   [bold]{model_name}[/bold]"
+            + (f"\n  base    [dim]{base_model_name}[/dim]" if base_model_name else "")
+        )
+        self._console.print(f"  judge   [dim]{judge_name}[/dim]")
+        self._console.print()
+
+    def phase_start(self, label: str, total: int) -> None:
+        assert self._progress is not None
+        self._task_total = total
+        self._task = self._progress.add_task(label, total=total, detail="starting…")
+
+    def phase_tick(self, detail: str) -> None:
+        assert self._progress is not None and self._task is not None
+        self._progress.update(self._task, advance=1, detail=detail)
+
+    def phase_done(self) -> None:
+        assert self._progress is not None and self._task is not None
+        self._progress.update(self._task, completed=self._task_total, detail="done")
+
+    def footer(self, *, card_path: Path, report_path: Path) -> None:
+        self._console.print()
+        self._console.print("[bold green]✓[/bold green]  eval complete")
+        self._console.print(f"   [cyan]{card_path}[/cyan]  ← paste this into your HuggingFace model card")
+        self._console.print(f"   [dim]{report_path}[/dim]  ← full evidence report")
+        self._console.print()
 
 
 # ── single-model eval pipeline ────────────────────────────────────────────────
@@ -163,33 +225,22 @@ def _run_one(
     hardware: str,
     workers: int,
     suite_defaults: dict,
-    progress: Progress,
-    phase_prefix: str,
-    total_phases: int,
+    reporter: EvalReporter,
+    phase_label: str,
 ) -> int:
     """Run eval + grade for one model. Returns run_id."""
-    # Count total tests for the progress bar
     tests = load_tests(tests_dir, suite_defaults=suite_defaults)
     n_tests = len(tests)
-    n_refusal = sum(
-        1 for _, t in tests
-        if t.get("grader") == "refusal"
-        or _category_from_tests(tests_dir, t.get("id", "")) in REFUSAL_CATEGORIES
-    )
-    # Simpler: count after we know category labels
-    refusal_cats = REFUSAL_CATEGORIES
-
-    # ── Phase: run ──
-    run_desc = f"[{phase_prefix}] running {n_tests} tests"
-    run_task = progress.add_task(run_desc, total=n_tests, detail="starting…")
-
-    def on_test(category, test, rep, g):
-        label = g.label or ("pass" if g.passed else "fail")
-        progress.update(run_task, advance=1,
-                        detail=f"{category}  {test['id']}  {label}")
 
     conn = db.connect(str(db_path))
     conn.close()
+
+    # ── Phase: run ──
+    reporter.phase_start(f"{phase_label} running {n_tests} tests", n_tests)
+
+    def on_test(category, test, rep, g):
+        label = g.label or ("pass" if g.passed else "fail")
+        reporter.phase_tick(f"{category}  {test['id']}  {label}")
 
     run_id = run_suite(
         server_url=server_url,
@@ -202,7 +253,7 @@ def _run_one(
         suite_defaults=suite_defaults,
         on_progress=on_test,
     )
-    progress.update(run_task, completed=n_tests, detail="done")
+    reporter.phase_done()
 
     # ── Phase: grade ──
     conn2 = db.connect(str(db_path))
@@ -210,26 +261,17 @@ def _run_one(
     n_grade = len(refusal_rows)
     conn2.close()
 
-    grade_prefix = phase_prefix.replace("run", "grade").replace("1/", "").replace("3/", "")
-    grade_desc = f"[{phase_prefix.split(']')[0].replace('[', '')} grade] grading {n_grade} refusal responses"
-    grade_task = progress.add_task(grade_desc, total=n_grade, detail="starting…")
+    reporter.phase_start(f"{phase_label} grading {n_grade} refusal responses", n_grade)
 
     def on_grade(i, total, category, test_id, label):
-        progress.update(grade_task, advance=1,
-                        detail=f"{category}  {test_id}  → {label}")
+        reporter.phase_tick(f"{category}  {test_id}  → {label}")
 
     conn3 = db.connect(str(db_path))
     grade_run(conn3, run_id, judge=judge, api_key=api_key, on_progress=on_grade)
     conn3.close()
 
-    progress.update(grade_task, completed=n_grade, detail="done")
+    reporter.phase_done()
     return run_id
-
-
-def _category_from_tests(tests_dir: Path, test_id: str) -> str:
-    """Best-effort: extract category from test_id prefix (e.g. 'sorrybench-001' → 'sorrybench')."""
-    parts = test_id.rsplit("-", 1)
-    return parts[0] if len(parts) == 2 else ""
 
 
 # ── main eval entry point ─────────────────────────────────────────────────────
@@ -246,9 +288,8 @@ def run_eval(
     docs_dir: str | Path | None = None,
     hardware: str = "unknown",
     workers: int = 1,
-    db_path: str | Path = "results.db",
     suite_defaults: dict | None = None,
-    config_path: str = "crucible.yaml",
+    reporter: EvalReporter | None = None,
 ) -> Path:
     """Run the full eval pipeline and return the output directory path."""
     # Resolve judge
@@ -268,21 +309,18 @@ def run_eval(
     has_base = bool(base_model_name)
     total_phases = 4 if has_base else 3  # run[+base], grade[+base], report
 
-    console.print()
-    console.print(f"[bold]crucible eval[/bold]  →  [cyan]{out_dir}/[/cyan]")
-    console.print(
-        f"  model   [bold]{model_name}[/bold]"
-        + (f"\n  base    [dim]{base_model_name}[/dim]" if has_base else "")
-    )
-    console.print(f"  judge   [dim]{judge_name}[/dim] (auto-detected)")
-    console.print()
+    reporter = reporter or RichEvalReporter()
 
     ablit_run_id: int
     base_run_id: int | None = None
 
-    with _make_progress() as progress:
+    with reporter:
+        reporter.header(
+            out_dir=out_dir, model_name=model_name,
+            base_model_name=base_model_name, judge_name=judge_name,
+        )
+
         # ── Eval abliterated model ──
-        phase = f"[1/{total_phases}]"
         ablit_run_id = _run_one(
             server_url=server_url,
             model_name=model_name,
@@ -294,14 +332,12 @@ def run_eval(
             hardware=hardware,
             workers=workers,
             suite_defaults=suite_def,
-            progress=progress,
-            phase_prefix=phase,
-            total_phases=total_phases,
+            reporter=reporter,
+            phase_label=f"[1/{total_phases}]",
         )
 
         # ── Eval base model (if --base) ──
         if has_base:
-            phase = f"[2/{total_phases}]"
             base_run_id = _run_one(
                 server_url=server_url,
                 model_name=base_model_name,
@@ -313,26 +349,23 @@ def run_eval(
                 hardware=hardware,
                 workers=workers,
                 suite_defaults=suite_def,
-                progress=progress,
-                phase_prefix=phase,
-                total_phases=total_phases,
+                reporter=reporter,
+                phase_label=f"[2/{total_phases}]",
             )
 
         # ── Generate outputs ──
         report_phase = f"[{total_phases}/{total_phases}]"
-        output_task = progress.add_task(
-            f"{report_phase} generating report", total=3, detail=""
-        )
+        reporter.phase_start(f"{report_phase} generating report", 3)
 
         conn = db.connect(str(run_db))
         try:
             ablit_report = build_run_report(conn, ablit_run_id)
-            progress.update(output_task, advance=1, detail="report built")
+            reporter.phase_tick("report built")
 
             # Report
             report_path = out_dir / "report.md"
             write_report(render_markdown(ablit_report), report_path)
-            progress.update(output_task, advance=1, detail="report.md")
+            reporter.phase_tick("report.md")
 
             # Model card
             card_path = out_dir / "model-card.md"
@@ -354,14 +387,10 @@ def run_eval(
                     conn=conn,
                 )
             write_model_card(card_text, card_path)
-            progress.update(output_task, advance=1, detail="model-card.md")
+            reporter.phase_tick("model-card.md")
         finally:
             conn.close()
 
-    console.print()
-    console.print(f"[bold green]✓[/bold green]  eval complete")
-    console.print(f"   [cyan]{card_path}[/cyan]  ← paste this into your HuggingFace model card")
-    console.print(f"   [dim]{report_path}[/dim]  ← full evidence report")
-    console.print()
+        reporter.footer(card_path=card_path, report_path=report_path)
 
     return out_dir

@@ -86,11 +86,6 @@ def _pct(n: int, d: int) -> str:
     return f"{100 * n / d:.0f}%" if d else "-"
 
 
-def _is_label_category(c) -> bool:
-    """Refusal-style categories report labels, not pass/fail - detect by data, not name."""
-    return c["n_graded"] == 0 and (c["n_complied"] + c["n_hedged"] + c["n_refused"]) > 0
-
-
 def cmd_run(args: argparse.Namespace) -> int:
     _banner(args)
     server_url = getattr(args, "server", None)
@@ -147,11 +142,13 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def _print_summary(conn, run_id: int) -> None:
+    from .compare import is_label_category
+
     row = db.get_run(conn, run_id)
     print(f"  {row['model_name']}  [{row['quant']}]  lineage={row['lineage']}  "
           f"llama.cpp={row['llama_cpp_commit']}")
     for c in db.category_summary(conn, run_id):
-        if _is_label_category(c):
+        if is_label_category(c):
             print(f"    {c['category']:12} {c['n_complied']} complied / "
                   f"{c['n_hedged']} hedged / {c['n_refused']} refused")
         else:
@@ -160,6 +157,8 @@ def _print_summary(conn, run_id: int) -> None:
 
 
 def cmd_compare(args: argparse.Namespace) -> int:
+    from .compare import build_comparison_rows
+
     _banner(args)
     conn = db.connect(args.db)
     a, b = db.get_run(conn, args.run_a), db.get_run(conn, args.run_b)
@@ -180,23 +179,9 @@ def cmd_compare(args: argparse.Namespace) -> int:
           f"B=#{args.run_b} {lb} ({b['lineage']})\n")
     print(f"  {'category':12} {'A':>12} {'B':>12}   Δ")
     print(f"  {'-'*12} {'-'*12:>12} {'-'*12:>12}   {'-'*6}")
-    for cat in sorted(set(sa) | set(sb)):
-        ca, cb = sa.get(cat), sb.get(cat)
-        if (ca and _is_label_category(ca)) or (cb and _is_label_category(cb)):
-            va = f"{ca['n_complied']}c/{ca['n_refused']}r" if ca else "-"
-            vb = f"{cb['n_complied']}c/{cb['n_refused']}r" if cb else "-"
-            delta = ""
-            if ca and cb:
-                delta = f"{cb['n_complied'] - ca['n_complied']:+d} complied"
-            print(f"  {cat:12} {va:>12} {vb:>12}   {delta}")
-        else:
-            pa = ca["n_passed"] / ca["n_graded"] if ca and ca["n_graded"] else None
-            pb = cb["n_passed"] / cb["n_graded"] if cb and cb["n_graded"] else None
-            va = f"{ca['n_passed']}/{ca['n_graded']}" if ca else "-"
-            vb = f"{cb['n_passed']}/{cb['n_graded']}" if cb else "-"
-            delta = f"{(pb - pa) * 100:+.0f}%" if (pa is not None and pb is not None) else ""
-            flag = "  ⚠" if (delta and (pb - pa) <= -0.15) else ""
-            print(f"  {cat:12} {va:>12} {vb:>12}   {delta}{flag}")
+    for row in build_comparison_rows(sa, sb):
+        flag = "  ⚠" if row.flagged else ""
+        print(f"  {row.category:12} {row.value_a:>12} {row.value_b:>12}   {row.delta}{flag}")
     print()
     conn.close()
     return 0
@@ -329,24 +314,15 @@ def cmd_runs(args: argparse.Namespace) -> int:
         print(f"No runs in {args.db} yet. Run `crucible run <model>`.")
         return 0
     for r in rows:
-        summary = db.category_summary(conn, r["id"])
-        status = "done" if r["finished_at"] else "open"
-        n_results = sum(c["n_results"] for c in summary)
-        n_graded = sum(c["n_graded"] for c in summary)
-        n_passed = sum(c["n_passed"] for c in summary)
-        labels = {
-            "complied": sum(c["n_complied"] for c in summary),
-            "hedged": sum(c["n_hedged"] for c in summary),
-            "refused": sum(c["n_refused"] for c in summary),
-        }
-        rate = _pct(n_passed, n_graded) if n_graded else "-"
-        prov = "hashes" if r["model_sha256"] and r["tests_sha256"] else "no-hash"
+        o = db.run_overview_row(conn, r)
+        rate = _pct(o["n_passed"], o["n_graded"]) if o["n_graded"] else "-"
+        prov = "hashes" if o["has_hashes"] else "no-hash"
         refusal = ""
-        if sum(labels.values()):
-            refusal = f"  {labels['complied']}c/{labels['hedged']}h/{labels['refused']}r"
+        if o["n_complied"] + o["n_hedged"] + o["n_refused"]:
+            refusal = f"  {o['n_complied']}c/{o['n_hedged']}h/{o['n_refused']}r"
         print(
-            f"  #{r['id']:<3} {status:4} {r['model_name']}[{r['quant']}] {r['lineage']:11} "
-            f"{r['hardware']:14} {n_results:4} results {rate:>4} {prov:7}{refusal}"
+            f"  #{r['id']:<3} {o['status']:4} {r['model_name']}[{r['quant']}] {r['lineage']:11} "
+            f"{r['hardware']:14} {o['n_results']:4} results {rate:>4} {prov:7}{refusal}"
         )
     conn.close()
     return 0
@@ -476,6 +452,12 @@ def cmd_model_card(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tui(args: argparse.Namespace) -> int:
+    from .tui import run_app
+
+    return run_app()
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     from .doctor import render_doctor, run_doctor
 
@@ -511,7 +493,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="crucible", description=__doc__)
     parser.add_argument("--config", default="crucible.yaml", help="optional YAML defaults file")
     parser.add_argument("--no-banner", action="store_true", help="suppress the CLI banner")
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command", required=False)
 
     # ── eval: the primary entry point ──────────────────────────────────────────
     p_eval = sub.add_parser(
@@ -524,11 +506,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="model name to send in the API payload")
     p_eval.add_argument("--base", default=None, metavar="NAME",
                         help="base model name for delta comparison (optional, external server only)")
-    p_eval.add_argument("--judge", default=None,
-                        help="judge preset: 'claude', 'openai', 'deepseek', or a URL "
-                             "(auto-detected from ANTHROPIC_API_KEY/OPENAI_API_KEY/DEEPSEEK_API_KEY)")
+    p_eval.add_argument("--judge", required=True,
+                        help="judge: 'claude', 'openai', 'deepseek', or a URL "
+                             "(no default - always explicit)")
     p_eval.add_argument("--api-key", default=None, dest="api_key",
-                        help="judge API key (or set the env var for your provider)")
+                        help="judge API key (or set the matching env var: ANTHROPIC_API_KEY / "
+                             "OPENAI_API_KEY / DEEPSEEK_API_KEY)")
     p_eval.add_argument("--out", default=None, metavar="DIR",
                         help="output directory (default: {model}-{size}-eval/)")
     p_eval.add_argument("--tests", default="tests",
@@ -640,7 +623,7 @@ def main(argv: list[str] | None = None) -> int:
     p_grade = sub.add_parser("grade", help="re-grade refusal responses with an LLM judge (BYOK)")
     p_grade.add_argument("run_id", type=int, help="stored run id to grade")
     p_grade.add_argument("--judge", required=True,
-                         help="judge backend: 'deepseek', 'openai', or a full URL (e.g. http://localhost:11434/v1)")
+                         help="judge backend: 'claude', 'deepseek', 'openai', or a full URL (e.g. http://localhost:11434/v1)")
     p_grade.add_argument("--api-key", default=None, dest="api_key",
                          help="API key (or set DEEPSEEK_API_KEY / OPENAI_API_KEY env var)")
     p_grade.add_argument("--categories", default=None,
@@ -675,7 +658,14 @@ def main(argv: list[str] | None = None) -> int:
     p_doctor.add_argument("--model", default=None)
     p_doctor.set_defaults(func=cmd_doctor)
 
+    p_tui = sub.add_parser(
+        "tui", help="launch the interactive terminal app (same as running `crucible` with no command)",
+    )
+    p_tui.set_defaults(func=cmd_tui)
+
     args = parser.parse_args(argv)
+    if args.command is None:
+        args.func = cmd_tui
     try:
         raw_config = load_config(args.config)
         apply_config_defaults(args, raw_config)

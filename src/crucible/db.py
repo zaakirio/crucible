@@ -158,6 +158,25 @@ def category_summary(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]
     ).fetchall()
 
 
+def run_overview_row(conn: sqlite3.Connection, run_row: sqlite3.Row) -> dict:
+    """Aggregate one run's category_summary into totals for a one-line overview.
+
+    Shared by `crucible runs` and the TUI's runs screen - one definition of what a
+    run's summary line means, rendered two different ways.
+    """
+    summary = category_summary(conn, run_row["id"])
+    return {
+        "status": "done" if run_row["finished_at"] else "open",
+        "n_results": sum(c["n_results"] for c in summary),
+        "n_graded": sum(c["n_graded"] for c in summary),
+        "n_passed": sum(c["n_passed"] for c in summary),
+        "n_complied": sum(c["n_complied"] for c in summary),
+        "n_hedged": sum(c["n_hedged"] for c in summary),
+        "n_refused": sum(c["n_refused"] for c in summary),
+        "has_hashes": bool(run_row["model_sha256"] and run_row["tests_sha256"]),
+    }
+
+
 def result_flagged(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:
     """Results with data-quality flags (truncated, short_response) for a run."""
     return conn.execute(

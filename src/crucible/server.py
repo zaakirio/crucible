@@ -189,6 +189,11 @@ def _preflight(model_path: Path) -> None:
         raise PreflightError(msg)
 
 
+def list_gguf_files(root: Path) -> list[Path]:
+    """All .gguf files under root, recursively, sorted by path."""
+    return sorted(Path(root).rglob("*.gguf"))
+
+
 def _free_port() -> int:
     """Grab an OS-assigned free port. Small TOCTOU race; fine for local single-runner use."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

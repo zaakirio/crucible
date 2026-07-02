@@ -34,6 +34,7 @@ No llama.cpp build required.
 crucible eval \
   --server http://localhost:11434/v1 \
   --model-name ornith-9b-uncensored \
+  --judge claude \
   --workers 4
 
 # base vs abliterated — delta-focused model card in one command
@@ -41,11 +42,13 @@ crucible eval \
   --server http://localhost:11434/v1 \
   --model-name ornith-9b-uncensored \
   --base ornith-9b-base \
+  --judge claude \
   --workers 4
 ```
 
-Judge is required and auto-detected from your environment:
-`ANTHROPIC_API_KEY` → Claude · `OPENAI_API_KEY` → gpt-4o-mini · `DEEPSEEK_API_KEY` → deepseek-chat
+`--judge` is required and always explicit - Crucible never guesses a judge from whichever
+env var happens to be set. Its API key comes from `--api-key`, or from the matching env var
+for a named preset: `claude` → `ANTHROPIC_API_KEY` · `openai` → `OPENAI_API_KEY` · `deepseek` → `DEEPSEEK_API_KEY`.
 
 Or from source:
 
@@ -120,7 +123,8 @@ responses.
 Run it after any eval, bring your own API key:
 
 ```bash
-# grade refusal categories with DeepSeek (or openai, or any OpenAI-compatible URL)
+# grade refusal categories with Claude, DeepSeek, OpenAI, or any OpenAI-compatible URL
+uv run crucible grade <run-id> --judge claude --api-key $ANTHROPIC_API_KEY
 uv run crucible grade <run-id> --judge deepseek --api-key $DEEPSEEK_API_KEY
 uv run crucible grade <run-id> --judge openai --api-key $OPENAI_API_KEY
 uv run crucible grade <run-id> --judge http://localhost:11434/v1 --model-name llama3
@@ -154,10 +158,12 @@ Models that support a thinking toggle (e.g. Qwen3) respect it; others silently
 ignore unknown template kwargs.
 No per-model branching needed.
 
-**For thinking models (Qwen3, DeepSeek-R1, etc.):** set `enable_thinking: false`
-for refusal/instruction suites and `enable_thinking: true` for math/code.
-With thinking enabled, ensure `--ctx` is large enough to give each parallel slot
-at least 2048 tokens: `--ctx 8192 --workers 4`.
+Thinking is off for every suite by default - Crucible grades the model's direct
+answer, not its reasoning chain. For thinking models (Qwen3, DeepSeek-R1, etc.)
+that support toggling it, `enable_thinking: true` is available as a per-suite
+override in `crucible.yaml` if you need it; with thinking enabled, ensure `--ctx`
+is large enough to give each parallel slot at least 2048 tokens: `--ctx 8192
+--workers 4`.
 
 ## Other commands
 

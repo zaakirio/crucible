@@ -128,3 +128,16 @@ def chat(
         raw=data,
         tool_calls=calls,
     )
+
+
+def list_models(base_url: str, *, timeout_s: float = 10.0) -> list[str]:
+    """Query an OpenAI-compatible server's /v1/models for what it currently has loaded.
+
+    Ollama, vLLM, LM Studio, and llama-server all implement this - lets callers offer a
+    picker instead of requiring the exact model-name string a server expects.
+    """
+    r = httpx.get(f"{base_url}/v1/models", timeout=timeout_s)
+    if r.status_code >= 400:
+        raise ServerError(r.status_code, r.text)
+    data = r.json()
+    return [m["id"] for m in data.get("data", []) if isinstance(m, dict) and m.get("id")]

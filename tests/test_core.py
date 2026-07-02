@@ -12,15 +12,20 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import asyncio
+
 from crucible import db
 from crucible.charts import merged_stats
 from crucible.cli import BANNER, cmd_runs
 from crucible.client import ChatResult, ServerError, ToolCall
 from crucible.config import apply_config_defaults, load_config
 from crucible.doctor import DoctorCheck, render_doctor
+from crucible.eval import EvalReporter, detect_judge, run_eval
 from crucible.export import export_rows, render_jsonl
 from crucible.gate import evaluate_gate, render_gate
 from crucible.graders import grade_abstain_if_missing, grade_grounded_exact, grade_must_cite, grade_refusal, grade_tool_call
+from crucible.compare import build_comparison_rows, is_label_category
+from crucible.judge import _resolve_preset, call_judge
 from crucible.model_card import render_model_card
 from crucible.report import build_run_report, render_json, render_markdown
 from crucible.runner import RunAborted, parse_model_meta, run_suite
@@ -1300,6 +1305,489 @@ class CoreTests(unittest.TestCase):
                 self.assertIsNone(runs[0]["finished_at"])  # left unfinished -> resumable
             finally:
                 conn.close()
+
+    def test_run_overview_row_aggregates_across_categories(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            conn = db.connect(Path(td) / "results.db")
+            try:
+                run_id = self._create_finished_run(conn)
+                db.insert_result(
+                    conn, run_id=run_id, test_id="math-001", category="math", rep=0,
+                    response="42", passed=1, label=None, detail="ok",
+                    latency_ms=1, tok_per_sec=1.0, prompt_tokens=1, completion_tokens=1,
+                )
+                db.insert_result(
+                    conn, run_id=run_id, test_id="xstest-001", category="xstest", rep=0,
+                    response="no", passed=None, label="refused", detail="profile",
+                    latency_ms=1, tok_per_sec=1.0, prompt_tokens=1, completion_tokens=1,
+                )
+                row = db.get_run(conn, run_id)
+                overview = db.run_overview_row(conn, row)
+            finally:
+                conn.close()
+        self.assertEqual(overview["status"], "done")
+        self.assertEqual(overview["n_results"], 2)
+        self.assertEqual(overview["n_passed"], 1)
+        self.assertEqual(overview["n_graded"], 1)
+        self.assertEqual(overview["n_refused"], 1)
+        self.assertFalse(overview["has_hashes"])  # _create_finished_run doesn't set them
+
+    def test_hub_list_ggufs_raises_runtime_error_not_system_exit(self) -> None:
+        from crucible import hub
+
+        fake_401 = SimpleNamespace(status_code=401)
+        with patch("crucible.hub.httpx.get", lambda *a, **k: fake_401):
+            with self.assertRaises(RuntimeError) as ctx:
+                hub.list_ggufs("gated/repo")
+        self.assertIn("HF_TOKEN", str(ctx.exception))
+
+        fake_404 = SimpleNamespace(status_code=404)
+        with patch("crucible.hub.httpx.get", lambda *a, **k: fake_404):
+            with self.assertRaises(RuntimeError):
+                hub.list_ggufs("no/such-repo")
+
+    def test_hub_download_reports_progress_via_callback(self) -> None:
+        from crucible import hub
+
+        chunks = [b"0" * 10, b"1" * 10]
+
+        class FakeStreamResponse:
+            headers = {"content-length": "20"}
+
+            def raise_for_status(self) -> None:
+                pass
+
+            def iter_bytes(self, chunk_size):
+                yield from chunks
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        with tempfile.TemporaryDirectory() as td:
+            dest_dir = Path(td)
+            progress: list[tuple[int, int]] = []
+            with patch("crucible.hub.httpx.stream", lambda *a, **k: FakeStreamResponse()):
+                dest = hub.download(
+                    "some/repo", hub.HubFile("model.gguf", 20), dest_dir,
+                    on_progress=lambda done, total: progress.append((done, total)),
+                )
+            self.assertEqual(dest.read_bytes(), b"0" * 10 + b"1" * 10)
+            self.assertEqual(progress, [(10, 20), (20, 20)])
+
+    def test_is_label_category_detects_by_data_not_name(self) -> None:
+        self.assertTrue(is_label_category(
+            {"n_graded": 0, "n_complied": 1, "n_hedged": 0, "n_refused": 0}))
+        self.assertFalse(is_label_category(
+            {"n_graded": 5, "n_complied": 0, "n_hedged": 0, "n_refused": 0}))
+        self.assertFalse(is_label_category(
+            {"n_graded": 0, "n_complied": 0, "n_hedged": 0, "n_refused": 0}))
+
+    def test_build_comparison_rows_handles_graded_and_label_categories(self) -> None:
+        sa = {
+            "gsm8k": {"n_passed": 60, "n_graded": 100, "n_complied": 0, "n_hedged": 0, "n_refused": 0},
+            "sorrybench": {"n_passed": 0, "n_graded": 0, "n_complied": 19, "n_hedged": 11, "n_refused": 15},
+        }
+        sb = {
+            "gsm8k": {"n_passed": 40, "n_graded": 100, "n_complied": 0, "n_hedged": 0, "n_refused": 0},
+            "sorrybench": {"n_passed": 0, "n_graded": 0, "n_complied": 45, "n_hedged": 0, "n_refused": 0},
+        }
+        rows = {r.category: r for r in build_comparison_rows(sa, sb)}
+
+        self.assertFalse(rows["gsm8k"].is_label)
+        self.assertEqual(rows["gsm8k"].delta, "-20%")
+        self.assertTrue(rows["gsm8k"].flagged)  # -20pp capability drop clears the -15pp bar
+
+        self.assertTrue(rows["sorrybench"].is_label)
+        self.assertEqual(rows["sorrybench"].delta, "+26 complied")
+        self.assertFalse(rows["sorrybench"].flagged)  # flag is capability-only, not refusal profile
+
+    def test_build_comparison_rows_keeps_categories_missing_from_one_side(self) -> None:
+        sa = {"code": {"n_passed": 5, "n_graded": 6, "n_complied": 0, "n_hedged": 0, "n_refused": 0}}
+        sb = {}
+        rows = build_comparison_rows(sa, sb)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].value_a, "5/6")
+        self.assertEqual(rows[0].value_b, "-")
+        self.assertEqual(rows[0].delta, "")  # no B side - nothing to compute a delta against
+
+    def test_detect_judge_never_defaults_even_when_a_key_is_present(self) -> None:
+        # Regression guard: crucible must never silently pick a judge just because *some*
+        # provider's env var happens to be set - --judge is always required.
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-present"}, clear=False):
+            with self.assertRaises(ValueError) as ctx:
+                detect_judge()
+        self.assertIn("No judge specified", str(ctx.exception))
+
+    def test_detect_judge_resolves_named_preset_key_from_its_own_env_var(self) -> None:
+        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-present"}, clear=False):
+            judge, key = detect_judge("claude", None)
+        self.assertEqual((judge, key), ("claude", "sk-present"))
+
+    def test_detect_judge_fails_gracefully_when_named_preset_has_no_key(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(ValueError) as ctx:
+                detect_judge("claude", None)
+        self.assertIn("ANTHROPIC_API_KEY", str(ctx.exception))
+
+    def test_resolve_preset_returns_anthropic_kind_for_claude(self) -> None:
+        base_url, model, key, kind = _resolve_preset("claude", "sk-fake")
+        self.assertEqual(base_url, "https://api.anthropic.com/v1")
+        self.assertEqual(kind, "anthropic")
+        self.assertEqual(key, "sk-fake")
+        self.assertTrue(model)
+
+        base_url, model, key, kind = _resolve_preset("deepseek", "sk-fake")
+        self.assertEqual(kind, "openai")
+
+        base_url, model, key, kind = _resolve_preset("http://localhost:11434/v1", None)
+        self.assertEqual(kind, "openai")
+        self.assertEqual(base_url, "http://localhost:11434/v1")
+
+    def test_call_judge_uses_anthropic_messages_shape_for_claude(self) -> None:
+        captured = {}
+
+        def fake_post(url, *, json, headers, timeout):
+            captured["url"] = url
+            captured["json"] = json
+            captured["headers"] = headers
+            return SimpleNamespace(
+                status_code=200,
+                json=lambda: {"content": [{"type": "text", "text": '{"label": "complied", "reason": "ok"}'}]},
+                raise_for_status=lambda: None,
+            )
+
+        with patch("crucible.judge.httpx.post", fake_post):
+            verdict = call_judge(
+                "prompt", "response",
+                base_url="https://api.anthropic.com/v1", model="claude-haiku-4-5-20251001",
+                api_key="sk-fake", kind="anthropic",
+            )
+        self.assertEqual(verdict.label, "complied")
+        self.assertEqual(captured["url"], "https://api.anthropic.com/v1/messages")
+        self.assertEqual(captured["headers"]["x-api-key"], "sk-fake")
+        self.assertNotIn("Authorization", captured["headers"])
+        self.assertNotIn("response_format", captured["json"])
+        self.assertTrue(captured["json"]["system"])  # system prompt is top-level, not a message
+        self.assertNotIn("system", [m.get("role") for m in captured["json"]["messages"]])
+
+    def test_call_judge_tolerates_judge_text_wrapped_around_json(self) -> None:
+        fake = SimpleNamespace(
+            status_code=200,
+            json=lambda: {"choices": [{"message": {"content": 'Sure thing! {"label": "hedged", "reason": "partial"} Hope that helps.'}}]},
+            raise_for_status=lambda: None,
+        )
+        with patch("crucible.judge.httpx.post", lambda *a, **k: fake):
+            verdict = call_judge(
+                "prompt", "response",
+                base_url="https://api.deepseek.com/v1", model="deepseek-chat",
+                api_key="sk-fake", kind="openai",
+            )
+        self.assertEqual(verdict.label, "hedged")
+
+    def test_list_models_parses_openai_style_response(self) -> None:
+        from crucible import client
+
+        fake = SimpleNamespace(
+            status_code=200,
+            json=lambda: {"data": [{"id": "llama3"}, {"id": "mistral"}, {"not_id": "skip me"}]},
+        )
+        with patch("crucible.client.httpx.get", lambda *a, **k: fake):
+            self.assertEqual(client.list_models("http://127.0.0.1:1"), ["llama3", "mistral"])
+
+    def test_list_models_raises_typed_server_error_on_failure(self) -> None:
+        from crucible import client
+
+        fake = SimpleNamespace(status_code=500, text='{"error":{"message":"boom"}}')
+        with patch("crucible.client.httpx.get", lambda *a, **k: fake):
+            with self.assertRaises(ServerError) as ctx:
+                client.list_models("http://127.0.0.1:1")
+        self.assertEqual(ctx.exception.status_code, 500)
+
+    def test_run_eval_produces_report_and_model_card_via_custom_reporter(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            tests_dir = root / "tests"
+            tests_dir.mkdir()
+            (tests_dir / "math.yaml").write_text(
+                "- id: math-001\n  prompt: What is 6 * 7?\n  grader: numeric\n  expected: 42\n"
+            )
+            out_dir = root / "out"
+
+            def fake_chat(*_args, **_kwargs):
+                return ChatResult(text="42", tokens_per_second=1.0, prompt_tokens=1,
+                                   completion_tokens=1, raw={}, tool_calls=[])
+
+            @contextmanager
+            def fake_external_server(*_args, **_kwargs):
+                yield SimpleNamespace(base_url="http://127.0.0.1:1", load_time_s=0.0, proc=None)
+
+            calls: list[tuple] = []
+
+            class RecordingReporter(EvalReporter):
+                def header(self, **kw):
+                    calls.append(("header", kw))
+
+                def phase_start(self, label, total):
+                    calls.append(("phase_start", label, total))
+
+                def phase_tick(self, detail):
+                    calls.append(("phase_tick", detail))
+
+                def phase_done(self):
+                    calls.append(("phase_done",))
+
+                def footer(self, **kw):
+                    calls.append(("footer", kw))
+
+            with (
+                patch("crucible.runner.external_server", fake_external_server),
+                patch("crucible.runner.chat", fake_chat),
+            ):
+                result_dir = run_eval(
+                    server_url="http://127.0.0.1:1",
+                    model_name="test-model",
+                    judge="deepseek",
+                    api_key="fake-key",
+                    out=str(out_dir),
+                    tests_dir=str(tests_dir),
+                    reporter=RecordingReporter(),
+                )
+
+            self.assertEqual(result_dir, out_dir.resolve())
+            self.assertTrue((out_dir / "report.md").exists())
+            self.assertTrue((out_dir / "model-card.md").exists())
+            self.assertIn("1/1 (100%)", (out_dir / "model-card.md").read_text())
+
+            kinds = [c[0] for c in calls]
+            self.assertEqual(kinds[0], "header")
+            self.assertEqual(kinds[-1], "footer")
+            self.assertIn("phase_start", kinds)
+            self.assertIn("phase_tick", kinds)
+
+    @staticmethod
+    async def _pick_option(pilot, app, option_id: str) -> None:
+        """Select an OptionList entry by id and confirm it, like arrowing down + Enter."""
+        from textual.widgets import OptionList
+
+        option_list = app.screen.query_one(OptionList)
+        option_list.highlighted = option_list.get_option_index(option_id)
+        await pilot.pause()
+        await pilot.press("enter")
+
+    def test_tui_wizard_reaches_results_screen_on_external_server_path(self) -> None:
+        from textual.widgets import Input, ListView
+
+        from crucible import tui
+        from crucible.doctor import DoctorCheck as _DoctorCheck
+
+        def fake_run_doctor(**_kwargs):
+            return [_DoctorCheck("httpx", True, "import ok")]
+
+        def fake_list_models(_base_url):
+            return ["fake-model-a", "fake-model-b"]
+
+        def fake_detect_judge(*_a, **_kw):
+            return "fake-judge", "fake-key"
+
+        def fake_run_eval(*, server_url, model_name, base_model_name=None, judge=None,
+                           api_key=None, tests_dir="tests", reporter=None, **_kw):
+            reporter.header(out_dir=Path("fake-out"), model_name=model_name,
+                             base_model_name=base_model_name, judge_name=judge)
+            reporter.phase_start("[1/3] running 1 tests", 1)
+            reporter.phase_tick("math math-001 pass")
+            reporter.phase_done()
+            out_dir = Path(tempfile.mkdtemp())
+            (out_dir / "model-card.md").write_text("# Fake model card\n")
+            (out_dir / "report.md").write_text("# Fake report\n")
+            reporter.footer(card_path=out_dir / "model-card.md", report_path=out_dir / "report.md")
+            return out_dir
+
+        async def drive() -> None:
+            with (
+                patch("crucible.tui.doctor.run_doctor", fake_run_doctor),
+                patch("crucible.tui.client.list_models", fake_list_models),
+                patch("crucible.tui.detect_judge", fake_detect_judge),
+                patch("crucible.tui.run_eval", fake_run_eval),
+            ):
+                app = tui.CrucibleApp()
+                async with app.run_test() as pilot:
+                    await pilot.pause()
+                    self.assertIsInstance(app.screen, tui.HomeScreen)
+                    await self._pick_option(pilot, app, "eval")  # home menu
+                    await pilot.pause()
+                    await pilot.press("enter")  # preflight (no failures -> continue)
+                    await pilot.pause()
+                    await self._pick_option(pilot, app, "external")  # source picker
+                    await pilot.pause()
+                    url_input = app.screen.query_one("#url", Input)
+                    url_input.value = "http://localhost:11434/v1"
+                    url_input.focus()
+                    await pilot.press("enter")  # server url
+                    await pilot.pause()
+                    app.screen.query_one(ListView).index = 0
+                    await pilot.pause()
+                    await pilot.press("enter")  # model picker
+                    await pilot.pause()
+                    await self._pick_option(pilot, app, "no")  # skip base model
+                    await pilot.pause()
+                    key_input = app.screen.query_one("#key", Input)
+                    app.screen.query_one("#judge", Input).value = "fake-judge"
+                    key_input.value = "fake-key"
+                    key_input.focus()
+                    await pilot.press("enter")  # judge (no default - always explicit)
+                    await pilot.pause()
+                    await self._pick_option(pilot, app, "run")  # confirm
+                    for _ in range(25):
+                        await pilot.pause(0.2)
+                        if isinstance(app.screen, tui.ResultsScreen):
+                            break
+                    self.assertIsInstance(app.screen, tui.ResultsScreen)
+                    await pilot.press("q")  # back to home, not app exit
+                    await pilot.pause()
+                    self.assertIsInstance(app.screen, tui.HomeScreen)
+                    await self._pick_option(pilot, app, "quit")
+                    await pilot.pause()
+
+        asyncio.run(drive())
+
+    def test_tui_home_menu_is_navigable_with_arrow_keys(self) -> None:
+        # Regression test: the home menu used to be a stack of Buttons, which Tab (not
+        # arrow keys) moves focus between - OptionList fixes this natively.
+        from textual.widgets import OptionList
+
+        from crucible import tui
+
+        async def drive() -> None:
+            app = tui.CrucibleApp()
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                option_list = app.screen.query_one(OptionList)
+                start = option_list.highlighted
+                await pilot.press("down")  # eval -> runs
+                await pilot.pause()
+                self.assertNotEqual(option_list.highlighted, start)
+                await pilot.press("enter")
+                await pilot.pause()
+                self.assertIsInstance(app.screen, tui.RunsScreen)
+                await pilot.press("q")
+                await pilot.pause()
+                self.assertIsInstance(app.screen, tui.HomeScreen)
+                await self._pick_option(pilot, app, "quit")
+                await pilot.pause()
+
+        asyncio.run(drive())
+
+    def test_tui_help_screen_reachable_from_home_and_returns(self) -> None:
+        from crucible import tui
+
+        async def drive() -> None:
+            app = tui.CrucibleApp()
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                await self._pick_option(pilot, app, "help")
+                await pilot.pause()
+                self.assertIsInstance(app.screen, tui.HelpScreen)
+                await pilot.press("q")
+                await pilot.pause()
+                self.assertIsInstance(app.screen, tui.HomeScreen)
+                await self._pick_option(pilot, app, "quit")
+                await pilot.pause()
+
+        asyncio.run(drive())
+
+    def test_tui_home_menu_navigates_runs_compare_pull_and_back(self) -> None:
+        from textual.widgets import Input, ListView
+
+        from crucible import tui
+        from crucible.compare import ComparisonRow
+        from crucible.hub import HubFile
+
+        run_a = {"id": 1, "model_name": "base-model", "quant": "Q4_K_M", "lineage": "base",
+                 "hardware": "test-box", "finished_at": "2026-01-01T00:00:00+00:00"}
+        run_b = {"id": 2, "model_name": "base-model", "quant": "Q4_K_M", "lineage": "abliterated",
+                 "hardware": "test-box", "finished_at": "2026-01-01T00:01:00+00:00"}
+        overview = {"status": "done", "n_results": 1, "n_graded": 1, "n_passed": 1,
+                    "n_complied": 0, "n_hedged": 0, "n_refused": 0, "has_hashes": True}
+        fake_overviews = [(run_a, overview), (run_b, overview)]
+
+        def fake_load_runs_overview():
+            return fake_overviews
+
+        def fake_load_comparison(a, b):
+            return [ComparisonRow("gsm8k", False, "60/100", "66/100", "+6%", flagged=False)]
+
+        def fake_list_ggufs(repo_id):
+            return [HubFile("model-Q4_K_M.gguf", 10)]
+
+        def fake_download(repo_id, file, dest_dir, *, on_progress=None):
+            if on_progress:
+                on_progress(file.size, file.size)
+            return dest_dir / file.path
+
+        async def drive() -> None:
+            with (
+                patch("crucible.tui._load_runs_overview", fake_load_runs_overview),
+                patch("crucible.tui._load_comparison", fake_load_comparison),
+                patch("crucible.tui.hub.list_ggufs", fake_list_ggufs),
+                patch("crucible.tui.hub.download", fake_download),
+            ):
+                app = tui.CrucibleApp()
+                async with app.run_test() as pilot:
+                    await pilot.pause()
+
+                    # Runs -> back to home
+                    await self._pick_option(pilot, app, "runs")
+                    await pilot.pause()
+                    self.assertIsInstance(app.screen, tui.RunsScreen)
+                    await pilot.press("q")
+                    await pilot.pause()
+                    self.assertIsInstance(app.screen, tui.HomeScreen)
+
+                    # Compare -> back to home
+                    await self._pick_option(pilot, app, "compare")
+                    await pilot.pause()
+                    self.assertIsInstance(app.screen, tui.RunPickerScreen)
+                    app.screen.query_one(ListView).index = 0
+                    await pilot.pause()
+                    await pilot.press("enter")  # pick run A
+                    await pilot.pause()
+                    self.assertIsInstance(app.screen, tui.RunPickerScreen)
+                    app.screen.query_one(ListView).index = 0
+                    await pilot.pause()
+                    await pilot.press("enter")  # pick run B
+                    await pilot.pause()
+                    self.assertIsInstance(app.screen, tui.CompareResultScreen)
+                    await pilot.press("q")
+                    await pilot.pause()
+                    self.assertIsInstance(app.screen, tui.HomeScreen)
+
+                    # Pull -> back to home
+                    await self._pick_option(pilot, app, "pull")
+                    await pilot.pause()
+                    self.assertIsInstance(app.screen, tui.PullRepoScreen)
+                    repo_input = app.screen.query_one("#repo", Input)
+                    repo_input.value = "fake/repo"
+                    repo_input.focus()
+                    await pilot.press("enter")
+                    await pilot.pause()
+                    self.assertIsInstance(app.screen, tui.PullFileListScreen)
+                    await pilot.press("enter")  # bound Download action
+                    for _ in range(15):
+                        await pilot.pause(0.2)
+                        lines = [str(line) for line in app.screen.query_one("#run-log").lines]
+                        if any("done" in line.lower() for line in lines):
+                            break
+                    await pilot.press("q")
+                    await pilot.pause()
+                    self.assertIsInstance(app.screen, tui.HomeScreen)
+
+                    await self._pick_option(pilot, app, "quit")
+                    await pilot.pause()
+
+        asyncio.run(drive())
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from . import db
+from .compare import is_label_category as _is_label_category
 
 
 @dataclass(frozen=True)
@@ -19,10 +20,6 @@ class GateFinding:
 class GateResult:
     passed: bool
     findings: list[GateFinding]
-
-
-def _is_label_category(row: sqlite3.Row) -> bool:
-    return row["n_graded"] == 0 and (row["n_complied"] + row["n_hedged"] + row["n_refused"]) > 0
 
 
 def _pass_rate(row: sqlite3.Row) -> float | None:
