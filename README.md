@@ -20,6 +20,12 @@ same tool-call parsing your published GGUFs get.
 Every run records provenance hashes (model file, test suite, llama.cpp commit)
 so a score shift is attributable.
 
+Example of what it produces, measured on an M4 Pro on 2026-06-29
+([full evidence report](charts/evidence.html)): Heretic-abliterated LFM2.5-1.2B
+vs base, LLM-judge graded - sorrybench complied 8 → 34 (+26) and refused
+26 → 5 (−21) out of 45, while gsm8k went 61% → 66% and gsm_symbolic
+51% → 47%, both inside the 5pp regression gate.
+
 ## Install
 
 ```bash
@@ -32,14 +38,14 @@ No llama.cpp build required.
 ## Quickstart
 
 ```bash
-# single model — generates ornith-9b-eval/model-card.md
+# single model - generates ornith-9b-eval/model-card.md
 crucible eval \
   --server http://localhost:11434/v1 \
   --model-name ornith-9b-uncensored \
   --judge claude \
   --workers 4
 
-# base vs abliterated — delta-focused model card in one command
+# base vs abliterated - delta-focused model card in one command
 crucible eval \
   --server http://localhost:11434/v1 \
   --model-name ornith-9b-uncensored \
@@ -163,6 +169,12 @@ uv run crucible model-card <run-id> --out model-card.md
 Judge verdicts are stored in `judge_results` alongside the keyword labels - nothing
 is overwritten.
 
+How much the judge buys you is measured, not assumed: on a blind human-labeled
+sample of 50 refusal responses (`crucible label`), the keyword grader agreed with
+the human on 38/50 (76%), and its dominant error was scoring hedged responses as
+complied (11/50).
+That gap is why judge grading exists and why model cards show both graders side by side.
+
 ## Configuration
 
 `crucible.yaml` sets project defaults.
@@ -233,10 +245,11 @@ uv run crucible chart
 
 ## Example findings
 
-**[LFM2.5-1.2B — base vs Heretic-abliterated (2026-06-29)](charts/evidence.html)**
+**[LFM2.5-1.2B - base vs Heretic-abliterated (2026-06-29)](charts/evidence.html)**
 
 Full evidence report with refusal profile shift, capability preservation, and judge-validated grading.
-Headline: sorrybench +26 complied, −21 refused, zero capability regression.
+Headline: sorrybench +26 complied, −21 refused (LLM-judge graded, n=45).
+Capability stayed inside the 5pp gate rather than "zero change": gsm8k 61% → 66%, gsm_symbolic 51% → 47%.
 
 ![Capability vs quantization](charts/quant_curve.png)
 
@@ -266,11 +279,21 @@ Refusal categories report a **profile** (complied / hedged / refused), not pass/
 The keyword grader is deterministic and instant.
 `crucible grade` adds an LLM judge layer for higher accuracy.
 
+## Limitations
+
+The keyword refusal grader is deterministic but blunt: 76% agreement with blind human labels (38/50), erring toward calling hedged responses complied.
+Treat keyword-only refusal numbers as a lower bound on hedging; use `crucible grade` before publishing a delta.
+The hand-authored suites are small (agent_tool n=3, rag n=3-4, agent_dialogue n=3, starters n=6-8); they are smoke signals, not benchmarks.
+The published-dataset categories (gsm8k, gsm_symbolic, sorrybench, xstest, orbench, falsereject, BFCL) carry the statistical weight.
+Single-run scores on small n flap; `--repeat 3` measures the noise floor and is worth running before trusting any delta under ~10pp.
+All numbers in this README come from one machine (Apple M4 Pro, 24 GB, Metal); provenance hashes make runs attributable, not portable across hardware or llama.cpp versions.
+This repo has no CI pipeline or Dockerfile yet; the regression gate (`crucible gate`) is built for use in a downstream model repo's CI rather than proven in this one's.
+
 ## Development
 
 ```bash
 uv sync
-uv run python -m unittest discover tests   # offline, no model needed
+uv run python -m unittest discover tests   # 57 tests, offline, no model or API key needed
 ```
 
 ## Next

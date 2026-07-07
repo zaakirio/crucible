@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "A forensic eval workbench for self-hostable models: capability, refusal profiling, and abliteration delta measurement."
 readme = "README.md"
 license = "MIT"
-authors = [{ name = "Zaakir" }]
+authors = [{ name = "zaakirio" }]
 keywords = ["llm", "evaluation", "llama.cpp", "gguf", "quantization", "abliteration", "local-models", "uncensored"]
 classifiers = [
     "Development Status :: 4 - Beta",

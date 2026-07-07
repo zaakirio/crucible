@@ -603,12 +603,12 @@ class CoreTests(unittest.TestCase):
             (tests_dir / "agent_dialogue.yaml").write_text(
                 "- id: agent-001\n"
                 "  grader: exact\n"
-                "  expected: Zaakir\n"
+                "  expected: Idris\n"
                 "  conversation:\n"
                 "  - role: system\n"
                 "    content: You are a concise assistant.\n"
                 "  - role: user\n"
-                "    content: My name is Zaakir. Remember it.\n"
+                "    content: My name is Idris. Remember it.\n"
                 "  - role: assistant\n"
                 "    content: Understood.\n"
                 "  - role: user\n"
@@ -625,10 +625,10 @@ class CoreTests(unittest.TestCase):
             def fake_chat(base_url, messages, *, tools=None, temperature=0.0, seed=0, max_tokens=512, timeout_s=300.0, model=None, enable_thinking=None):
                 self.assertEqual(base_url, "http://127.0.0.1:1")
                 self.assertEqual([m["role"] for m in messages], ["system", "user", "assistant", "user"])
-                self.assertEqual(messages[1]["content"], "My name is Zaakir. Remember it.")
+                self.assertEqual(messages[1]["content"], "My name is Idris. Remember it.")
                 self.assertEqual(messages[-1]["content"], "What is my name?")
                 return ChatResult(
-                    text="Zaakir",
+                    text="Idris",
                     tokens_per_second=1.0,
                     prompt_tokens=1,
                     completion_tokens=1,
