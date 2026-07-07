@@ -25,6 +25,9 @@ dependencies = [
     "textual>=0.60",
 ]
 
+[project.optional-dependencies]
+lab = ["fastapi>=0.110", "uvicorn>=0.30"]
+
 [project.urls]
 Repository = "https://github.com/zaakirio/crucible"
 "Bug Tracker" = "https://github.com/zaakirio/crucible/issues"
@@ -38,6 +41,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "src/crucible/__init__.py"
+
+[tool.hatch.build]
+# lab_static/ is gitignored (built from lab-ui/) but must ship in release wheels.
+artifacts = ["src/crucible/lab_static/"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/crucible"]

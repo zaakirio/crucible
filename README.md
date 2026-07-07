@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/banner.svg" alt="" width="100%"></p>
+
 # Crucible
 
 **What survives quantization, abliteration, and serving.**
@@ -114,6 +116,31 @@ uv run crucible run --server http://localhost:11434/v1 --model-name uncensored-m
 # 3. compare
 uv run crucible compare <base-run-id> <abliterated-run-id>
 ```
+
+## Crucible Lab (web workbench)
+
+An interactive web UI over the results database: browse runs, drill into per-prompt
+transcripts with keyword/judge/human verdicts side by side, diff two runs, and chat
+against any OpenAI-compatible server in a playground.
+
+```bash
+pip install crucible-eval[lab]     # or: uv sync --extra lab
+crucible lab                       # serves http://127.0.0.1:7860 over results.db
+```
+
+![Runs overview](docs/lab-runs.png)
+
+![Base vs abliterated diff](docs/lab-compare.png)
+
+![Playground streaming against a live model](docs/lab-playground.png)
+
+Every aggregate is one click away from the raw transcripts that produced it - the
+compare view flags any capability drop of 15pp or more, and refusal categories always
+render as a complied/hedged/refused profile, never a single collapsed score.
+
+Frontend development lives in `lab-ui/` (Vite + React); `npm run build` outputs to
+`src/crucible/lab_static/`, which `crucible lab` serves. Build it once after cloning
+from source (release wheels ship it prebuilt).
 
 ## LLM judge grading
 

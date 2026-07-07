@@ -458,6 +458,12 @@ def cmd_tui(args: argparse.Namespace) -> int:
     return run_app()
 
 
+def cmd_lab(args: argparse.Namespace) -> int:
+    from .lab import serve
+
+    return serve(args.db, args.host, args.port)
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     from .doctor import render_doctor, run_doctor
 
@@ -662,6 +668,12 @@ def main(argv: list[str] | None = None) -> int:
         "tui", help="launch the interactive terminal app (same as running `crucible` with no command)",
     )
     p_tui.set_defaults(func=cmd_tui)
+
+    p_lab = sub.add_parser("lab", help="interactive web workbench over the results DB")
+    p_lab.add_argument("--db", default="results.db")
+    p_lab.add_argument("--host", default="127.0.0.1")
+    p_lab.add_argument("--port", type=int, default=7860)
+    p_lab.set_defaults(func=cmd_lab)
 
     args = parser.parse_args(argv)
     if args.command is None:

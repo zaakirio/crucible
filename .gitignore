@@ -14,3 +14,5 @@ charts-*/
 *-eval/
 .agents/
 skills-lock.json
+lab-ui/node_modules/
+src/crucible/lab_static/

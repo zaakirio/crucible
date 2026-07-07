@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="Crucible - what survives quantization, abliteration, and serving">
+  <defs>
+    <radialGradient id="glow-cr" cx="0.22" cy="0.5" r="0.75">
+      <stop offset="0" stop-color="#e8590c" stop-opacity="0.17"/>
+      <stop offset="1" stop-color="#e8590c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="edge-cr" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e8590c"/>
+      <stop offset="1" stop-color="#e8590c" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="320" fill="#191512"/>
+  <rect width="1280" height="320" fill="url(#glow-cr)"/>
+
+  <!-- faint oversized mark, right side texture -->
+  <g transform="translate(1030,36) scale(3.6)" opacity="0.05">
+    <path d="M10 8 h44 v12 l-13 17 v17 a4 4 0 0 1 -4 4 h-10 a4 4 0 0 1 -4 -4 v-17 l-13 -17 z" fill="#e8590c"/>
+  </g>
+
+  <!-- mark: the crucible vessel -->
+  <g transform="translate(100,112)">
+    <path d="M0 0 h60 v16 l-18 24 v22 a5 5 0 0 1 -5 5 h-14 a5 5 0 0 1 -5 -5 v-22 l-18 -24 z" fill="#e8590c"/>
+    <path d="M12 -8 q8 6 18 0 q10 -6 18 0" fill="none" stroke="#e8590c" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="208" y="163" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="64" font-weight="700" letter-spacing="-1" fill="#f3ece4">crucible</text>
+  <text x="210" y="205" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="21" fill="#b7a998">What survives quantization, abliteration, and serving.</text>
+
+  <text x="210" y="243" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="14" fill="#807260">capability · refusal profiles · tool calls · RAG · base-vs-modified deltas · web lab</text>
+
+  <rect x="96" y="272" width="420" height="2" fill="url(#edge-cr)"/>
+</svg>
