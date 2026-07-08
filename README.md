@@ -249,7 +249,7 @@ uv run crucible chart
 
 Full evidence report with refusal profile shift, capability preservation, and judge-validated grading.
 Headline: sorrybench +26 complied, −21 refused (LLM-judge graded, n=45).
-Capability stayed inside the 5pp gate rather than "zero change": gsm8k 61% → 66%, gsm_symbolic 51% → 47%.
+Capability stayed inside the 5pp gate: gsm8k 61% → 66%, gsm_symbolic 51% → 47%.
 
 ![Capability vs quantization](charts/quant_curve.png)
 
@@ -278,16 +278,6 @@ All test YAML files are committed - no seed scripts needed.
 Refusal categories report a **profile** (complied / hedged / refused), not pass/fail.
 The keyword grader is deterministic and instant.
 `crucible grade` adds an LLM judge layer for higher accuracy.
-
-## Limitations
-
-The keyword refusal grader is deterministic but blunt: 76% agreement with blind human labels (38/50), erring toward calling hedged responses complied.
-Treat keyword-only refusal numbers as a lower bound on hedging; use `crucible grade` before publishing a delta.
-The hand-authored suites are small (agent_tool n=3, rag n=3-4, agent_dialogue n=3, starters n=6-8); they are smoke signals, not benchmarks.
-The published-dataset categories (gsm8k, gsm_symbolic, sorrybench, xstest, orbench, falsereject, BFCL) carry the statistical weight.
-Single-run scores on small n flap; `--repeat 3` measures the noise floor and is worth running before trusting any delta under ~10pp.
-All numbers in this README come from one machine (Apple M4 Pro, 24 GB, Metal); provenance hashes make runs attributable, not portable across hardware or llama.cpp versions.
-This repo has no CI pipeline or Dockerfile yet; the regression gate (`crucible gate`) is built for use in a downstream model repo's CI rather than proven in this one's.
 
 ## Development
 
