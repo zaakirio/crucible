@@ -1,7 +1,7 @@
 [project]
 name = "crucible-eval"
 dynamic = ["version"]
-description = "A forensic eval workbench for self-hostable models: capability, refusal profiling, and abliteration delta measurement."
+description = "A forensic eval harness for self-hosted models: what quantization, serving, and weight modification do to capability, refusal behavior, and tool calling."
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "zaakirio" }]

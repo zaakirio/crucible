@@ -6,9 +6,9 @@ product
 
 ## Users
 
-Inference engineers and self-hosters who publish modified open models (abliterated, quantized) and need to prove what survived.
+Inference engineers and self-hosters who change how a model runs - quantize it, swap the serving stack, or modify the weights (including abliteration) - and need to prove what survived.
 They live in terminals next to a running `llama-server`; the Lab is open in a browser on the same machine while evals run.
-Secondary audience: hiring managers and readers of the owner's blog who land on a shared run report and judge the rigor of the work by what they see.
+Secondary audience: readers who land on a shared run report and judge the rigor of the work by the evidence behind each number.
 
 ## Product Purpose
 

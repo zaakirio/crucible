@@ -2,23 +2,24 @@
 
 # Crucible
 
-**What survives quantization, abliteration, and serving.**
-A forensic eval workbench for self-hostable models: capability, refusal behavior,
-tool-calling, RAG, and agent-style context, with first-class support for the
-abliteration workflow - base vs uncensored delta measurement and model card generation.
+**What survives quantization, serving, and modification.**
+A forensic eval harness for self-hosted models.
+You swapped quants, swapped serving stacks, or swapped the weights themselves.
+Crucible measures what that change actually did to capability, refusal behavior, and tool calling.
 
 ## Why
 
 Most leaderboards benchmark remote frontier APIs or unserved model snapshots.
-Crucible measures what you can actually run on your own hardware, and reports the
-deltas that matter when you abliterate a model: did refusals move to complies?
-Did capability survive?
+The model you actually run is neither: it has been quantized, wrapped in a serving stack, and sometimes had its weights modified, and every one of those steps can move the numbers.
+Crucible evaluates the model exactly as it is served - same chat template, same samplers, same tool-call parsing your users get - against any OpenAI-compatible server.
+Every run records provenance hashes (model file, test suite, llama.cpp commit) so a score shift is attributable.
 
-Crucible talks to any running OpenAI-compatible inference server.
-It evaluates a model exactly as it's served - same chat template, same samplers,
-same tool-call parsing your published GGUFs get.
-Every run records provenance hashes (model file, test suite, llama.cpp commit)
-so a score shift is attributable.
+The core act is a measured delta between two runs, and several delta workflows are first-class:
+
+1. Quant sweeps: run the same suite across Q3 to F16 and chart where capability falls off.
+2. Serving-stack or config swaps: rerun against a different server or settings and diff the results, tool-calling included.
+3. Weight modification: base vs modified (e.g. Heretic-abliterated) with refusal profiles and a capability regression gate.
+4. Grader validation: blind human labeling measures how far the keyword grader and LLM judge can be trusted.
 
 Example of what it produces, measured on an M4 Pro on 2026-06-29
 ([full evidence report](charts/evidence.html)): Heretic-abliterated LFM2.5-1.2B
@@ -38,18 +39,18 @@ No llama.cpp build required.
 ## Quickstart
 
 ```bash
-# single model - generates ornith-9b-eval/model-card.md
+# single model - generates {model}-eval/ with model-card.md
 crucible eval \
   --server http://localhost:11434/v1 \
-  --model-name ornith-9b-uncensored \
+  --model-name my-model \
   --judge claude \
   --workers 4
 
-# base vs abliterated - delta-focused model card in one command
+# before vs after a change - delta-focused model card in one command
 crucible eval \
   --server http://localhost:11434/v1 \
-  --model-name ornith-9b-uncensored \
-  --base ornith-9b-base \
+  --model-name my-model-modified \
+  --base my-model \
   --judge claude \
   --workers 4
 ```
@@ -106,22 +107,26 @@ Override the binary with `$CRUCIBLE_LLAMA_SERVER` or `--ngl`/`--ctx` flags as ne
 uv run crucible doctor
 ```
 
-## The abliteration workflow
+## Measuring a change
 
-The core use case: prove your abliterated model is more open than the base without
-being dumber. Three commands.
+Comparing two runs is the core act: before and after whatever you changed, whether that is the quant level, the serving stack, or the weights.
+Three commands.
 
 ```bash
-# 1. eval base model
+# 1. eval the baseline
 uv run crucible run --server http://localhost:11434/v1 --model-name base-model --workers 4
 # note the run id from `crucible runs`
 
-# 2. eval abliterated model
-uv run crucible run --server http://localhost:11434/v1 --model-name uncensored-model --workers 4
+# 2. eval the candidate
+uv run crucible run --server http://localhost:11434/v1 --model-name changed-model --workers 4
 
 # 3. compare
-uv run crucible compare <base-run-id> <abliterated-run-id>
+uv run crucible compare <baseline-run-id> <candidate-run-id>
 ```
+
+For a quant sweep, run each quant of the same model and `crucible chart` renders the capability-vs-quantization curve.
+For modified weights - abliteration was Crucible's original use case - the same three commands answer two questions: did refusals move to complied, and did capability survive?
+`crucible gate` turns the same comparison into a CI check with a nonzero exit on regression.
 
 ## Crucible Lab (web workbench)
 
@@ -282,9 +287,11 @@ The keyword grader is deterministic and instant.
 ## Development
 
 ```bash
-uv sync
+uv sync --extra lab
 uv run python -m unittest discover tests   # 57 tests, offline, no model or API key needed
 ```
+
+Without the `lab` extra the 11 Lab API tests skip automatically; the other 46 still run.
 
 ## Next
 
